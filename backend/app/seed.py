@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from .database import db_cursor
 
 DEMO_USER_ID = "u_demo_001"
+ADMIN_ID = "u_admin_001"
 
 
 def _now(offset_days: int = 0, offset_hours: int = 0) -> str:
@@ -57,10 +58,19 @@ ACHIEVEMENTS = [
     ("ach_008", "爱心使者", "完成一次公益兑换", "volunteer_activism", "redeem", 1),
 ]
 
+# (id, 姓名, 手机, 头像)
 RECYCLERS = [
-    ("王师傅", "13800001111", "https://i.pravatar.cc/150?img=12"),
-    ("李师傅", "13800002222", "https://i.pravatar.cc/150?img=33"),
-    ("张师傅", "13800003333", "https://i.pravatar.cc/150?img=51"),
+    ("r_001", "王师傅", "13800001111", "https://i.pravatar.cc/150?img=12"),
+    ("r_002", "李师傅", "13800002222", "https://i.pravatar.cc/150?img=33"),
+    ("r_003", "张师傅", "13800003333", "https://i.pravatar.cc/150?img=51"),
+]
+
+EXTRA_USERS = [
+    ("u_002", "13700000002", "陈晨", "https://i.pravatar.cc/150?img=5", 2, 620, 980, 21.5, 38.2),
+    ("u_003", "13700000003", "林夕", "https://i.pravatar.cc/150?img=9", 3, 1450, 1860, 42.0, 75.6),
+    ("u_004", "13700000004", "周末", "https://i.pravatar.cc/150?img=15", 1, 180, 180, 4.2, 6.8),
+    ("u_005", "13700000005", "赵小禾", "https://i.pravatar.cc/150?img=20", 5, 5200, 7300, 160.3, 290.1),
+    ("u_006", "13700000006", "吴桐", "https://i.pravatar.cc/150?img=25", 2, 300, 1100, 25.0, 44.0),
 ]
 
 
@@ -77,12 +87,31 @@ def seed_if_empty():
         conn.executemany("INSERT INTO articles VALUES (?,?,?,?,?,?,?,?,?,?)", ARTICLES)
         conn.executemany("INSERT INTO achievements VALUES (?,?,?,?,?,?)", ACHIEVEMENTS)
 
-        # 演示用户
+        # 演示用户 / 回收员 / 管理员
         conn.execute(
-            "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (DEMO_USER_ID, "13912345678", "123456", "小绿", "https://i.pravatar.cc/150?img=47",
-             4, 2860, 4120, 86.4, 148.6, _now(-120)),
+             "user", "active", 4, 2860, 4120, 86.4, 148.6, _now(-120)),
         )
+        for rid, name, phone, avatar in RECYCLERS:
+            conn.execute(
+                "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (rid, phone, "123456", name, avatar, "recycler", "active", 1, 0, 0, 0, 0, _now(-200)),
+            )
+        conn.execute(
+            "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (ADMIN_ID, "13900000000", "admin123", "平台管理员", "https://i.pravatar.cc/150?img=60",
+             "admin", "active", 1, 0, 0, 0, 0, _now(-365)),
+        )
+        for uid, phone, nick, avatar, lvl, pts, tpts, w, c in EXTRA_USERS:
+            conn.execute(
+                "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (uid, phone, "123456", nick, avatar, "user", "active", lvl, pts, tpts, w, c, _now(-90)),
+            )
+            conn.execute(
+                "INSERT INTO addresses VALUES (?,?,?,?,?,?,?)",
+                (f"addr_{uid}", uid, nick, phone, "北京市 朝阳区", f"绿地中央广场 {uid[-1]}号楼 {uid[-1]}0{uid[-1]}", 1),
+            )
         conn.execute(
             "INSERT INTO addresses VALUES (?,?,?,?,?,?,?)",
             ("addr_001", DEMO_USER_ID, "小绿", "13912345678", "北京市 朝阳区", "阳光花园小区 3号楼 2单元 801", 1),
@@ -113,15 +142,15 @@ def seed_if_empty():
                     amount += aw * c[4]
                     points += int(aw * c[5])
                     carbon += aw * c[6]
-            rec = RECYCLERS[recycler_idx] if recycler_idx is not None else (None, None, None)
+            rec = RECYCLERS[recycler_idx] if recycler_idx is not None else (None, None, None, None)
             created = _now(day_off, -2)
             conn.execute(
-                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (oid, f"GC{datetime.now().strftime('%Y%m')}{1000 + idx:04d}", DEMO_USER_ID, status,
                  "北京市 朝阳区 阳光花园小区 3号楼 2单元 801", "小绿", "13912345678",
                  _now(day_off).replace(_now(day_off)[11:], "14:00-16:00"), "请提前电话联系",
                  est, actual, round(amount, 2) if actual else None, points, round(carbon, 2),
-                 rec[0], rec[1], rec[2], created, created),
+                 rec[0], rec[1], rec[2], rec[3], created, created),
             )
             for cid, cname, ew, aw in items:
                 conn.execute(
@@ -132,6 +161,51 @@ def seed_if_empty():
                 conn.execute(
                     "INSERT INTO point_records VALUES (?,?,?,?,?,?,?)",
                     (f"pr_{oid}", DEMO_USER_ID, "earn", points, f"回收订单 {'、'.join(i[1] for i in items)}", oid, created),
+                )
+
+        # 其他用户的订单（供回收员接单大厅 / 管理后台使用）
+        others = [
+            # (oid, user_id, status, day_off, slot, items, recycler_idx)
+            ("o_101", "u_002", "pending", 0, "09:00-11:00", [("c_paper", "纸类", 10.0, None)], None),
+            ("o_102", "u_003", "pending", 0, "16:00-18:00", [("c_metal", "金属", 6.0, None), ("c_plastic", "塑料", 4.0, None)], None),
+            ("o_103", "u_005", "pending", 1, "11:00-13:00", [("c_appliance", "大家电", 45.0, None)], None),
+            ("o_104", "u_004", "pending", 1, "14:00-16:00", [("c_clothes", "旧衣物", 7.0, None)], None),
+            ("o_105", "u_006", "accepted", 0, "14:00-16:00", [("c_book", "书籍", 12.0, None)], 0),
+            ("o_106", "u_002", "in_progress", 0, "09:00-11:00", [("c_glass", "玻璃", 3.0, None)], 0),
+            ("o_107", "u_003", "completed", -1, "14:00-16:00", [("c_paper", "纸类", 9.0, 9.4)], 0),
+            ("o_108", "u_005", "completed", -2, "16:00-18:00", [("c_electronic", "电子产品", 2.0, 2.0), ("c_metal", "金属", 5.0, 5.5)], 0),
+            ("o_109", "u_006", "completed", -5, "09:00-11:00", [("c_plastic", "塑料", 6.0, 5.8)], 1),
+            ("o_110", "u_002", "completed", -9, "11:00-13:00", [("c_clothes", "旧衣物", 15.0, 14.2)], 2),
+            ("o_111", "u_004", "cancelled", -4, "14:00-16:00", [("c_paper", "纸类", 3.0, None)], None),
+            ("o_112", "u_005", "completed", -40, "14:00-16:00", [("c_metal", "金属", 20.0, 21.0)], 0),
+            ("o_113", "u_003", "completed", -70, "09:00-11:00", [("c_paper", "纸类", 14.0, 13.6)], 1),
+        ]
+        user_map = {u[0]: u for u in EXTRA_USERS}
+        for idx, (oid, uid, status, day_off, slot, items, recycler_idx) in enumerate(others):
+            u = user_map[uid]
+            est = sum(i[2] for i in items)
+            actual = sum(i[3] for i in items if i[3] is not None) if status == "completed" else None
+            amount = points = carbon = 0
+            if status == "completed":
+                for cid, _, _, aw in items:
+                    c = cat_map[cid]
+                    amount += aw * c[4]
+                    points += int(aw * c[5])
+                    carbon += aw * c[6]
+            rec = RECYCLERS[recycler_idx] if recycler_idx is not None else (None, None, None, None)
+            created = _now(day_off, -3)
+            conn.execute(
+                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (oid, f"GC{datetime.now().strftime('%Y%m')}{2000 + idx:04d}", uid, status,
+                 f"北京市 朝阳区 绿地中央广场 {uid[-1]}号楼 {uid[-1]}0{uid[-1]}", u[2], u[1],
+                 f"{_now(day_off)[:10]} {slot}", "",
+                 est, actual, round(amount, 2) if actual else None, points, round(carbon, 2),
+                 rec[0], rec[1], rec[2], rec[3], created, created),
+            )
+            for cid, cname, ew, aw in items:
+                conn.execute(
+                    "INSERT INTO order_items (order_id, category_id, category_name, estimated_weight, actual_weight) VALUES (?,?,?,?,?)",
+                    (oid, cid, cname, ew, aw),
                 )
 
         # 兑换记录

@@ -64,7 +64,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> loadHome() async {
-    if (user == null) return;
+    if (user == null || user!.role != 'user') return;
     loadingHome = true;
     homeError = null;
     notifyListeners();

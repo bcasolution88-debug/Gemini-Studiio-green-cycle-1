@@ -10,12 +10,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from .database import db_cursor, init_db, rows_to_list
 from .schemas import (
     AddressIn,
+    ArticleIn,
+    AssignOrderRequest,
+    CompleteOrderRequest,
     CreateOrderRequest,
     LoginRequest,
+    ProductIn,
+    RecyclerActionRequest,
     RedeemRequest,
     RegisterRequest,
     SignInRequest,
+    UpdateCategoryRequest,
+    UpdateProductRequest,
     UpdateProfileRequest,
+    UpdateRedemptionStatusRequest,
+    UpdateUserStatusRequest,
 )
 from .seed import DEMO_USER_ID, RECYCLERS, seed_if_empty
 
@@ -52,6 +61,8 @@ def _level_for(total_points: int) -> int:
 def _user_payload(row) -> dict:
     u = dict(row)
     u.pop("password", None)
+    u.setdefault("role", "user")
+    u.setdefault("status", "active")
     lvl = u["level"]
     u["level_name"] = LEVEL_NAMES[min(lvl - 1, len(LEVEL_NAMES) - 1)]
     next_th = LEVEL_THRESHOLDS[lvl] if lvl < len(LEVEL_THRESHOLDS) else None
@@ -92,6 +103,8 @@ def login(req: LoginRequest):
         ).fetchone()
         if not row:
             raise HTTPException(401, "手机号或密码错误")
+        if row["status"] == "disabled":
+            raise HTTPException(403, "账号已被禁用，请联系管理员")
         return _ok({"token": f"tk_{row['id']}", "user": _user_payload(row)})
 
 
@@ -102,9 +115,9 @@ def register(req: RegisterRequest):
             raise HTTPException(400, "该手机号已注册")
         uid = f"u_{uuid.uuid4().hex[:10]}"
         conn.execute(
-            "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (uid, req.phone, req.password, req.nickname,
-             f"https://i.pravatar.cc/150?img={random.randint(1, 70)}", 1, 100, 100, 0, 0, _now()),
+             f"https://i.pravatar.cc/150?img={random.randint(1, 70)}", "user", "active", 1, 100, 100, 0, 0, _now()),
         )
         conn.execute(
             "INSERT INTO point_records VALUES (?,?,?,?,?,?,?)",
@@ -320,6 +333,30 @@ def cancel_order(order_id: str):
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "已取消")
 
 
+def _settle_order(conn, order_row, items, actuals: dict):
+    """称重结算：写入实际重量、金额、积分、减碳，并发放积分"""
+    amount = points = carbon = weight = 0.0
+    for it in items:
+        cat = conn.execute("SELECT * FROM categories WHERE id=?", (it["category_id"],)).fetchone()
+        actual = float(actuals.get(it["id"], it["estimated_weight"]))
+        conn.execute("UPDATE order_items SET actual_weight=? WHERE id=?", (actual, it["id"]))
+        weight += actual
+        amount += actual * cat["price_per_kg"]
+        points += actual * cat["points_per_kg"]
+        carbon += actual * cat["carbon_per_kg"]
+    points = int(points)
+    conn.execute(
+        "UPDATE orders SET status='completed', actual_weight=?, amount=?, points_earned=?, carbon_saved=?, updated_at=? WHERE id=?",
+        (round(weight, 2), round(amount, 2), points, round(carbon, 2), _now(), order_row["id"]),
+    )
+    conn.execute(
+        "UPDATE users SET total_weight = total_weight + ?, total_carbon = total_carbon + ? WHERE id=?",
+        (round(weight, 2), round(carbon, 2), order_row["user_id"]),
+    )
+    names = "、".join(i["category_name"] for i in items)
+    _add_points(conn, order_row["user_id"], points, f"回收订单 {names}", order_row["id"])
+
+
 @app.post("/api/orders/{order_id}/advance")
 def advance_order(order_id: str):
     """模拟订单流转：pending -> accepted -> in_progress -> completed（演示用）"""
@@ -335,31 +372,13 @@ def advance_order(order_id: str):
         if nxt == "accepted":
             rec = random.choice(RECYCLERS)
             conn.execute(
-                "UPDATE orders SET status=?, recycler_name=?, recycler_phone=?, recycler_avatar=?, updated_at=? WHERE id=?",
-                (nxt, rec[0], rec[1], rec[2], _now(), order_id),
+                "UPDATE orders SET status=?, recycler_id=?, recycler_name=?, recycler_phone=?, recycler_avatar=?, updated_at=? WHERE id=?",
+                (nxt, rec[0], rec[1], rec[2], rec[3], _now(), order_id),
             )
         elif nxt == "completed":
             items = conn.execute("SELECT * FROM order_items WHERE order_id=?", (order_id,)).fetchall()
-            amount = points = carbon = weight = 0.0
-            for it in items:
-                cat = conn.execute("SELECT * FROM categories WHERE id=?", (it["category_id"],)).fetchone()
-                actual = round(it["estimated_weight"] * random.uniform(0.9, 1.1), 1)
-                conn.execute("UPDATE order_items SET actual_weight=? WHERE id=?", (actual, it["id"]))
-                weight += actual
-                amount += actual * cat["price_per_kg"]
-                points += actual * cat["points_per_kg"]
-                carbon += actual * cat["carbon_per_kg"]
-            points = int(points)
-            conn.execute(
-                "UPDATE orders SET status=?, actual_weight=?, amount=?, points_earned=?, carbon_saved=?, updated_at=? WHERE id=?",
-                (nxt, round(weight, 2), round(amount, 2), points, round(carbon, 2), _now(), order_id),
-            )
-            conn.execute(
-                "UPDATE users SET total_weight = total_weight + ?, total_carbon = total_carbon + ? WHERE id=?",
-                (round(weight, 2), round(carbon, 2), row["user_id"]),
-            )
-            names = "、".join(i["category_name"] for i in items)
-            _add_points(conn, row["user_id"], points, f"回收订单 {names}", order_id)
+            actuals = {it["id"]: round(it["estimated_weight"] * random.uniform(0.9, 1.1), 1) for it in items}
+            _settle_order(conn, row, items, actuals)
         else:
             conn.execute("UPDATE orders SET status=?, updated_at=? WHERE id=?", (nxt, _now(), order_id))
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()))
@@ -484,3 +503,380 @@ def home(user_id: str = Query(DEMO_USER_ID)):
             "hot_products": hot,
             "news": news,
         })
+
+
+# =====================================================================
+# 回收员端
+# =====================================================================
+def _require_role(conn, user_id: str, *roles):
+    row = _get_user_or_404(conn, user_id)
+    if row["role"] not in roles:
+        raise HTTPException(403, "无权限执行此操作")
+    return row
+
+
+@app.get("/api/recycler/hall")
+def recycler_hall(recycler_id: str = Query(...)):
+    """接单大厅：所有待接单订单"""
+    with db_cursor() as conn:
+        _require_role(conn, recycler_id, "recycler", "admin")
+        rows = conn.execute(
+            "SELECT * FROM orders WHERE status='pending' ORDER BY appointment_time ASC, created_at ASC"
+        ).fetchall()
+        return _ok([_order_with_items(conn, r) for r in rows])
+
+
+@app.get("/api/recycler/tasks")
+def recycler_tasks(recycler_id: str = Query(...), status: str = Query("active")):
+    """我的任务：active = 已接单 + 上门中；completed = 已完成；all = 全部"""
+    with db_cursor() as conn:
+        _require_role(conn, recycler_id, "recycler", "admin")
+        if status == "active":
+            rows = conn.execute(
+                "SELECT * FROM orders WHERE recycler_id=? AND status IN ('accepted','in_progress') ORDER BY appointment_time ASC",
+                (recycler_id,),
+            ).fetchall()
+        elif status == "completed":
+            rows = conn.execute(
+                "SELECT * FROM orders WHERE recycler_id=? AND status='completed' ORDER BY updated_at DESC",
+                (recycler_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM orders WHERE recycler_id=? ORDER BY created_at DESC", (recycler_id,)
+            ).fetchall()
+        return _ok([_order_with_items(conn, r) for r in rows])
+
+
+@app.post("/api/recycler/orders/{order_id}/accept")
+def recycler_accept(order_id: str, req: RecyclerActionRequest):
+    with db_cursor() as conn:
+        rec = _require_role(conn, req.recycler_id, "recycler", "admin")
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "订单不存在")
+        if row["status"] != "pending":
+            raise HTTPException(400, "该订单已被接单或已取消")
+        conn.execute(
+            "UPDATE orders SET status='accepted', recycler_id=?, recycler_name=?, recycler_phone=?, recycler_avatar=?, updated_at=? WHERE id=?",
+            (rec["id"], rec["nickname"], rec["phone"], rec["avatar"], _now(), order_id),
+        )
+        return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "接单成功")
+
+
+@app.post("/api/recycler/orders/{order_id}/depart")
+def recycler_depart(order_id: str, req: RecyclerActionRequest):
+    with db_cursor() as conn:
+        _require_role(conn, req.recycler_id, "recycler", "admin")
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row or row["recycler_id"] != req.recycler_id and row["recycler_id"] is not None:
+            raise HTTPException(404, "订单不存在或不属于您")
+        if row["status"] != "accepted":
+            raise HTTPException(400, "当前状态无法出发")
+        conn.execute("UPDATE orders SET status='in_progress', updated_at=? WHERE id=?", (_now(), order_id))
+        return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "已出发")
+
+
+@app.post("/api/recycler/orders/{order_id}/complete")
+def recycler_complete(order_id: str, req: CompleteOrderRequest):
+    """称重完成：按品类填写实际重量并结算"""
+    with db_cursor() as conn:
+        _require_role(conn, req.recycler_id, "recycler", "admin")
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "订单不存在")
+        if row["status"] not in ("accepted", "in_progress"):
+            raise HTTPException(400, "当前状态无法完成")
+        items = conn.execute("SELECT * FROM order_items WHERE order_id=?", (order_id,)).fetchall()
+        weight_by_cat = {i.category_id: i.actual_weight for i in req.items}
+        actuals = {it["id"]: weight_by_cat.get(it["category_id"], it["estimated_weight"]) for it in items}
+        _settle_order(conn, row, items, actuals)
+        return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "回收完成")
+
+
+@app.get("/api/recycler/stats")
+def recycler_stats(recycler_id: str = Query(...)):
+    with db_cursor() as conn:
+        rec = _require_role(conn, recycler_id, "recycler", "admin")
+        today = datetime.now().strftime("%Y-%m-%d")
+        month = datetime.now().strftime("%Y-%m")
+        def agg(where, params):
+            r = conn.execute(
+                f"SELECT COUNT(*), COALESCE(SUM(actual_weight),0), COALESCE(SUM(amount),0), COALESCE(SUM(carbon_saved),0) "
+                f"FROM orders WHERE recycler_id=? AND status='completed' {where}", (recycler_id, *params)
+            ).fetchone()
+            return {"count": r[0], "weight": round(r[1], 1), "amount": round(r[2], 2), "carbon": round(r[3], 1)}
+        active = conn.execute(
+            "SELECT COUNT(*) FROM orders WHERE recycler_id=? AND status IN ('accepted','in_progress')", (recycler_id,)
+        ).fetchone()[0]
+        pending = conn.execute("SELECT COUNT(*) FROM orders WHERE status='pending'").fetchone()[0]
+        return _ok({
+            "recycler": _user_payload(rec),
+            "today": agg("AND updated_at LIKE ?", (f"{today}%",)),
+            "month": agg("AND updated_at LIKE ?", (f"{month}%",)),
+            "total": agg("", ()),
+            "active_tasks": active,
+            "hall_pending": pending,
+            "rating": 4.9,
+        })
+
+
+# =====================================================================
+# 管理后台
+# =====================================================================
+@app.get("/api/admin/dashboard")
+def admin_dashboard(admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        today = datetime.now().strftime("%Y-%m-%d")
+        month = datetime.now().strftime("%Y-%m")
+        users = conn.execute("SELECT COUNT(*) FROM users WHERE role='user'").fetchone()[0]
+        recyclers = conn.execute("SELECT COUNT(*) FROM users WHERE role='recycler'").fetchone()[0]
+        new_users_month = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE role='user' AND created_at LIKE ?", (f"{month}%",)
+        ).fetchone()[0]
+        total = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(actual_weight),0), COALESCE(SUM(amount),0), COALESCE(SUM(carbon_saved),0), COALESCE(SUM(points_earned),0) "
+            "FROM orders WHERE status='completed'"
+        ).fetchone()
+        today_row = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(actual_weight),0), COALESCE(SUM(amount),0) FROM orders WHERE status='completed' AND updated_at LIKE ?",
+            (f"{today}%",),
+        ).fetchone()
+        today_new = conn.execute("SELECT COUNT(*) FROM orders WHERE created_at LIKE ?", (f"{today}%",)).fetchone()[0]
+        status_counts = {r[0]: r[1] for r in conn.execute("SELECT status, COUNT(*) FROM orders GROUP BY status").fetchall()}
+        by_cat = rows_to_list(conn.execute(
+            "SELECT oi.category_name AS name, COALESCE(SUM(oi.actual_weight),0) AS weight, COUNT(DISTINCT oi.order_id) AS orders "
+            "FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE o.status='completed' GROUP BY oi.category_name ORDER BY weight DESC"
+        ).fetchall())
+        trend = rows_to_list(conn.execute(
+            "SELECT substr(updated_at,1,10) AS day, COUNT(*) AS orders, COALESCE(SUM(actual_weight),0) AS weight "
+            "FROM orders WHERE status='completed' AND updated_at >= date('now','-13 days') GROUP BY day ORDER BY day"
+        ).fetchall())
+        top_recyclers = rows_to_list(conn.execute(
+            "SELECT u.id, u.nickname, u.avatar, COUNT(o.id) AS orders, COALESCE(SUM(o.actual_weight),0) AS weight "
+            "FROM users u LEFT JOIN orders o ON o.recycler_id=u.id AND o.status='completed' "
+            "WHERE u.role='recycler' GROUP BY u.id ORDER BY orders DESC, weight DESC LIMIT 5"
+        ).fetchall())
+        top_users = rows_to_list(conn.execute(
+            "SELECT id, nickname, avatar, total_weight, total_carbon, total_points FROM users WHERE role='user' ORDER BY total_weight DESC LIMIT 5"
+        ).fetchall())
+        redemptions = conn.execute("SELECT COUNT(*), COALESCE(SUM(points),0) FROM redemptions").fetchone()
+        pending_redemptions = conn.execute("SELECT COUNT(*) FROM redemptions WHERE status='pending'").fetchone()[0]
+        return _ok({
+            "users": users,
+            "recyclers": recyclers,
+            "new_users_month": new_users_month,
+            "orders_total": total[0],
+            "weight_total": round(total[1], 1),
+            "amount_total": round(total[2], 2),
+            "carbon_total": round(total[3], 1),
+            "points_total": total[4],
+            "today_orders_completed": today_row[0],
+            "today_weight": round(today_row[1], 1),
+            "today_amount": round(today_row[2], 2),
+            "today_new_orders": today_new,
+            "status_counts": status_counts,
+            "by_category": by_cat,
+            "trend": trend,
+            "top_recyclers": top_recyclers,
+            "top_users": top_users,
+            "redemptions_total": redemptions[0],
+            "redemptions_points": redemptions[1],
+            "pending_redemptions": pending_redemptions,
+        })
+
+
+@app.get("/api/admin/orders")
+def admin_orders(admin_id: str = Query(...), status: str = Query("all"), keyword: str = Query("")):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        sql = "SELECT * FROM orders WHERE 1=1"
+        params = []
+        if status != "all":
+            sql += " AND status=?"
+            params.append(status)
+        if keyword:
+            sql += " AND (order_no LIKE ? OR contact_name LIKE ? OR contact_phone LIKE ? OR address_text LIKE ?)"
+            params += [f"%{keyword}%"] * 4
+        sql += " ORDER BY created_at DESC LIMIT 200"
+        rows = conn.execute(sql, params).fetchall()
+        return _ok([_order_with_items(conn, r) for r in rows])
+
+
+@app.post("/api/admin/orders/{order_id}/assign")
+def admin_assign(order_id: str, req: AssignOrderRequest, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        rec = conn.execute("SELECT * FROM users WHERE id=? AND role='recycler'", (req.recycler_id,)).fetchone()
+        if not rec:
+            raise HTTPException(404, "回收员不存在")
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "订单不存在")
+        if row["status"] not in ("pending", "accepted"):
+            raise HTTPException(400, "当前状态无法指派")
+        conn.execute(
+            "UPDATE orders SET status='accepted', recycler_id=?, recycler_name=?, recycler_phone=?, recycler_avatar=?, updated_at=? WHERE id=?",
+            (rec["id"], rec["nickname"], rec["phone"], rec["avatar"], _now(), order_id),
+        )
+        return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "指派成功")
+
+
+@app.post("/api/admin/orders/{order_id}/cancel")
+def admin_cancel(order_id: str, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "订单不存在")
+        if row["status"] in ("completed", "cancelled"):
+            raise HTTPException(400, "订单已结束")
+        conn.execute("UPDATE orders SET status='cancelled', updated_at=? WHERE id=?", (_now(), order_id))
+        return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "已取消")
+
+
+@app.get("/api/admin/users")
+def admin_users(admin_id: str = Query(...), role: str = Query("all"), keyword: str = Query("")):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        sql = "SELECT * FROM users WHERE 1=1"
+        params = []
+        if role != "all":
+            sql += " AND role=?"
+            params.append(role)
+        if keyword:
+            sql += " AND (nickname LIKE ? OR phone LIKE ?)"
+            params += [f"%{keyword}%"] * 2
+        sql += " ORDER BY created_at DESC LIMIT 200"
+        rows = conn.execute(sql, params).fetchall()
+        result = []
+        for r in rows:
+            u = _user_payload(r)
+            if r["role"] == "recycler":
+                u["completed_orders"] = conn.execute(
+                    "SELECT COUNT(*) FROM orders WHERE recycler_id=? AND status='completed'", (r["id"],)
+                ).fetchone()[0]
+            else:
+                u["completed_orders"] = conn.execute(
+                    "SELECT COUNT(*) FROM orders WHERE user_id=? AND status='completed'", (r["id"],)
+                ).fetchone()[0]
+            result.append(u)
+        return _ok(result)
+
+
+@app.put("/api/admin/users/{user_id}")
+def admin_update_user(user_id: str, req: UpdateUserStatusRequest, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        _get_user_or_404(conn, user_id)
+        if req.status in ("active", "disabled"):
+            conn.execute("UPDATE users SET status=? WHERE id=?", (req.status, user_id))
+        if req.role in ("user", "recycler", "admin"):
+            conn.execute("UPDATE users SET role=? WHERE id=?", (req.role, user_id))
+        return _ok(_user_payload(_get_user_or_404(conn, user_id)))
+
+
+@app.get("/api/admin/recyclers")
+def admin_recyclers(admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        rows = conn.execute("SELECT * FROM users WHERE role='recycler' AND status='active' ORDER BY nickname").fetchall()
+        return _ok([_user_payload(r) for r in rows])
+
+
+@app.put("/api/admin/categories/{category_id}")
+def admin_update_category(category_id: str, req: UpdateCategoryRequest, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        if not conn.execute("SELECT 1 FROM categories WHERE id=?", (category_id,)).fetchone():
+            raise HTTPException(404, "品类不存在")
+        for field in ("price_per_kg", "points_per_kg", "carbon_per_kg", "description"):
+            v = getattr(req, field)
+            if v is not None:
+                conn.execute(f"UPDATE categories SET {field}=? WHERE id=?", (v, category_id))
+        return _ok(dict(conn.execute("SELECT * FROM categories WHERE id=?", (category_id,)).fetchone()))
+
+
+@app.post("/api/admin/products")
+def admin_create_product(req: ProductIn, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        pid = f"p_{uuid.uuid4().hex[:8]}"
+        conn.execute(
+            "INSERT INTO products VALUES (?,?,?,?,?,?,?,?,?)",
+            (pid, req.name, req.description, req.image, req.points, req.stock, req.category, int(req.is_hot), 0),
+        )
+        return _ok(dict(conn.execute("SELECT * FROM products WHERE id=?", (pid,)).fetchone()))
+
+
+@app.put("/api/admin/products/{product_id}")
+def admin_update_product(product_id: str, req: UpdateProductRequest, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        if not conn.execute("SELECT 1 FROM products WHERE id=?", (product_id,)).fetchone():
+            raise HTTPException(404, "商品不存在")
+        for field in ("name", "description", "image", "points", "stock", "category"):
+            v = getattr(req, field)
+            if v is not None:
+                conn.execute(f"UPDATE products SET {field}=? WHERE id=?", (v, product_id))
+        if req.is_hot is not None:
+            conn.execute("UPDATE products SET is_hot=? WHERE id=?", (int(req.is_hot), product_id))
+        return _ok(dict(conn.execute("SELECT * FROM products WHERE id=?", (product_id,)).fetchone()))
+
+
+@app.delete("/api/admin/products/{product_id}")
+def admin_delete_product(product_id: str, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        conn.execute("DELETE FROM products WHERE id=?", (product_id,))
+        return _ok(True)
+
+
+@app.get("/api/admin/redemptions")
+def admin_redemptions(admin_id: str = Query(...), status: str = Query("all")):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        if status == "all":
+            rows = conn.execute(
+                "SELECT r.*, u.nickname AS user_nickname, u.phone AS user_phone FROM redemptions r JOIN users u ON u.id=r.user_id ORDER BY r.created_at DESC"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT r.*, u.nickname AS user_nickname, u.phone AS user_phone FROM redemptions r JOIN users u ON u.id=r.user_id WHERE r.status=? ORDER BY r.created_at DESC",
+                (status,),
+            ).fetchall()
+        return _ok(rows_to_list(rows))
+
+
+@app.put("/api/admin/redemptions/{redemption_id}")
+def admin_update_redemption(redemption_id: str, req: UpdateRedemptionStatusRequest, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        if req.status not in ("pending", "shipped", "completed"):
+            raise HTTPException(400, "状态不合法")
+        conn.execute("UPDATE redemptions SET status=? WHERE id=?", (req.status, redemption_id))
+        row = conn.execute("SELECT * FROM redemptions WHERE id=?", (redemption_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "记录不存在")
+        return _ok(dict(row))
+
+
+@app.post("/api/admin/articles")
+def admin_create_article(req: ArticleIn, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        aid = f"a_{uuid.uuid4().hex[:8]}"
+        conn.execute(
+            "INSERT INTO articles VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (aid, req.title, req.summary, req.content, req.cover, req.category, req.author, 0, 0, _now()),
+        )
+        return _ok(dict(conn.execute("SELECT * FROM articles WHERE id=?", (aid,)).fetchone()))
+
+
+@app.delete("/api/admin/articles/{article_id}")
+def admin_delete_article(article_id: str, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        conn.execute("DELETE FROM articles WHERE id=?", (article_id,))
+        return _ok(True)

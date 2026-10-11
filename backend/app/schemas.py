@@ -50,3 +50,68 @@ class RedeemRequest(BaseModel):
 
 class SignInRequest(BaseModel):
     user_id: str
+
+
+# ---------- 回收员端 ----------
+class RecyclerActionRequest(BaseModel):
+    recycler_id: str
+
+
+class CompleteItemIn(BaseModel):
+    category_id: str
+    actual_weight: float = Field(..., ge=0)
+
+
+class CompleteOrderRequest(BaseModel):
+    recycler_id: str
+    items: List[CompleteItemIn]
+
+
+# ---------- 管理后台 ----------
+class UpdateCategoryRequest(BaseModel):
+    price_per_kg: Optional[float] = None
+    points_per_kg: Optional[int] = None
+    carbon_per_kg: Optional[float] = None
+    description: Optional[str] = None
+
+
+class ProductIn(BaseModel):
+    name: str
+    description: str
+    image: str
+    points: int = Field(..., ge=1)
+    stock: int = Field(..., ge=0)
+    category: str
+    is_hot: bool = False
+
+
+class UpdateProductRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    image: Optional[str] = None
+    points: Optional[int] = None
+    stock: Optional[int] = None
+    category: Optional[str] = None
+    is_hot: Optional[bool] = None
+
+
+class ArticleIn(BaseModel):
+    title: str
+    summary: str
+    content: str
+    cover: str
+    category: str
+    author: str = "绿循环官方"
+
+
+class UpdateUserStatusRequest(BaseModel):
+    status: Optional[str] = None  # active / disabled
+    role: Optional[str] = None  # user / recycler / admin
+
+
+class UpdateRedemptionStatusRequest(BaseModel):
+    status: str  # pending / shipped / completed
+
+
+class AssignOrderRequest(BaseModel):
+    recycler_id: str

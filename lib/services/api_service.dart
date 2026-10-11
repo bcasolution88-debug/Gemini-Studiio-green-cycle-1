@@ -221,3 +221,95 @@ class ApiService {
   Future<Article> likeArticle(String id) async =>
       Article.fromJson(Map<String, dynamic>.from(await _post('/api/articles/$id/like')));
 }
+
+/// 回收员端 & 管理后台 API
+extension RoleApi on ApiService {
+  // ---------- 回收员 ----------
+  Future<List<RecycleOrder>> recyclerHall(String recyclerId) async =>
+      _list(await _get('/api/recycler/hall', {'recycler_id': recyclerId}), RecycleOrder.fromJson);
+
+  Future<List<RecycleOrder>> recyclerTasks(String recyclerId, {String status = 'active'}) async =>
+      _list(await _get('/api/recycler/tasks', {'recycler_id': recyclerId, 'status': status}),
+          RecycleOrder.fromJson);
+
+  Future<RecycleOrder> recyclerAccept(String orderId, String recyclerId) async =>
+      RecycleOrder.fromJson(Map<String, dynamic>.from(
+          await _post('/api/recycler/orders/$orderId/accept', {'recycler_id': recyclerId})));
+
+  Future<RecycleOrder> recyclerDepart(String orderId, String recyclerId) async =>
+      RecycleOrder.fromJson(Map<String, dynamic>.from(
+          await _post('/api/recycler/orders/$orderId/depart', {'recycler_id': recyclerId})));
+
+  Future<RecycleOrder> recyclerComplete(
+          String orderId, String recyclerId, List<Map<String, dynamic>> items) async =>
+      RecycleOrder.fromJson(Map<String, dynamic>.from(await _post(
+          '/api/recycler/orders/$orderId/complete', {'recycler_id': recyclerId, 'items': items})));
+
+  Future<RecyclerStats> recyclerStats(String recyclerId) async => RecyclerStats.fromJson(
+      Map<String, dynamic>.from(await _get('/api/recycler/stats', {'recycler_id': recyclerId})));
+
+  // ---------- 管理后台 ----------
+  Future<AdminDashboard> adminDashboard(String adminId) async => AdminDashboard.fromJson(
+      Map<String, dynamic>.from(await _get('/api/admin/dashboard', {'admin_id': adminId})));
+
+  Future<List<RecycleOrder>> adminOrders(String adminId,
+          {String status = 'all', String keyword = ''}) async =>
+      _list(await _get('/api/admin/orders', {'admin_id': adminId, 'status': status, 'keyword': keyword}),
+          RecycleOrder.fromJson);
+
+  Future<RecycleOrder> adminAssign(String adminId, String orderId, String recyclerId) async =>
+      RecycleOrder.fromJson(Map<String, dynamic>.from(await _post(
+          '/api/admin/orders/$orderId/assign?admin_id=$adminId', {'recycler_id': recyclerId})));
+
+  Future<RecycleOrder> adminCancel(String adminId, String orderId) async =>
+      RecycleOrder.fromJson(Map<String, dynamic>.from(
+          await _post('/api/admin/orders/$orderId/cancel?admin_id=$adminId')));
+
+  Future<List<User>> adminUsers(String adminId, {String role = 'all', String keyword = ''}) async =>
+      _list(await _get('/api/admin/users', {'admin_id': adminId, 'role': role, 'keyword': keyword}),
+          User.fromJson);
+
+  Future<User> adminUpdateUser(String adminId, String userId, {String? status, String? role}) async =>
+      User.fromJson(Map<String, dynamic>.from(await _put('/api/admin/users/$userId?admin_id=$adminId', {
+        if (status != null) 'status': status,
+        if (role != null) 'role': role,
+      })));
+
+  Future<List<User>> adminRecyclers(String adminId) async =>
+      _list(await _get('/api/admin/recyclers', {'admin_id': adminId}), User.fromJson);
+
+  Future<RecycleCategory> adminUpdateCategory(String adminId, String id,
+          {double? price, int? points, double? carbon}) async =>
+      RecycleCategory.fromJson(
+          Map<String, dynamic>.from(await _put('/api/admin/categories/$id?admin_id=$adminId', {
+        if (price != null) 'price_per_kg': price,
+        if (points != null) 'points_per_kg': points,
+        if (carbon != null) 'carbon_per_kg': carbon,
+      })));
+
+  Future<Product> adminCreateProduct(String adminId, Map<String, dynamic> data) async =>
+      Product.fromJson(
+          Map<String, dynamic>.from(await _post('/api/admin/products?admin_id=$adminId', data)));
+
+  Future<Product> adminUpdateProduct(String adminId, String id, Map<String, dynamic> data) async =>
+      Product.fromJson(
+          Map<String, dynamic>.from(await _put('/api/admin/products/$id?admin_id=$adminId', data)));
+
+  Future<void> adminDeleteProduct(String adminId, String id) =>
+      _delete('/api/admin/products/$id?admin_id=$adminId');
+
+  Future<List<Redemption>> adminRedemptions(String adminId, {String status = 'all'}) async =>
+      _list(await _get('/api/admin/redemptions', {'admin_id': adminId, 'status': status}),
+          Redemption.fromJson);
+
+  Future<Redemption> adminUpdateRedemption(String adminId, String id, String status) async =>
+      Redemption.fromJson(Map<String, dynamic>.from(
+          await _put('/api/admin/redemptions/$id?admin_id=$adminId', {'status': status})));
+
+  Future<Article> adminCreateArticle(String adminId, Map<String, dynamic> data) async =>
+      Article.fromJson(
+          Map<String, dynamic>.from(await _post('/api/admin/articles?admin_id=$adminId', data)));
+
+  Future<void> adminDeleteArticle(String adminId, String id) =>
+      _delete('/api/admin/articles/$id?admin_id=$adminId');
+}

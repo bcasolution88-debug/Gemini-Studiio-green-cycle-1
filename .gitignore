@@ -50,3 +50,8 @@ backend/app/__pycache__/
 backend/*.db
 backend/*.db-journal
 *.pyc
+
+# Android signing
+android/key.properties
+android/*.jks
+android/*.keystore

@@ -1,6 +1,6 @@
 # 绿循环 Green Cycle - APP 平台
 
-绿色回收循环经济平台移动端 APP，包含 **Flutter 前端** 与 **FastAPI 后端** 的完整项目。
+绿色回收循环经济平台移动端 APP，包含 **Flutter 前端（用户端 / 回收员端 / 管理后台 三端合一）** 与 **FastAPI 后端** 的完整项目。
 
 | 项目 | 技术栈 |
 |---|---|
@@ -8,8 +8,21 @@
 | 后端 | Python 3 · FastAPI · SQLite（零外部依赖，开箱即用） |
 | 包名 | `com.greencycle.recycle` |
 
+## 三端角色
+
+登录后根据账号角色自动进入对应端：
+
+| 角色 | 演示账号 | 功能 |
+|---|---|---|
+| 👤 用户端 | `13912345678` / `123456` | 预约回收、订单跟踪、积分商城、环保资讯、减碳报告 |
+| 🛵 回收员端 | `13800001111` / `123456` | 接单大厅抢单、我的任务、出发上门、现场称重结算、业绩统计 |
+| 🛠 管理后台 | `13900000000` / `admin123` | 数据概览、订单管理（指派/取消）、用户管理（禁用/改角色）、品类调价、商品/资讯发布、兑换发货 |
+
+其他回收员：`13800002222`、`13800003333`（密码 `123456`）
+
 ## 功能概览
 
+### 用户端
 - **首页**：碳积分 / 等级进度、回收品类与今日价格、预约上门回收入口、进行中订单、热门商品、环保资讯、每日签到
 - **预约回收**：多品类选择 + 预估重量滑块、地址管理、上门时间段、实时预估金额 / 积分 / 减碳量
 - **订单**：全部 / 待接单 / 进行中 / 已完成分类，订单详情含进度步骤条、回收员信息、回收明细、取消预约，并提供状态流转模拟
@@ -17,6 +30,18 @@
 - **环保资讯**：分类知识 / 环保科普 / 平台动态 / 人物故事，文章详情、阅读量、点赞
 - **我的**：个人资料修改、累计数据、环保成就徽章、减碳报告（月度趋势、品类分布、植树当量）、积分明细、地址管理、后端地址设置、退出登录
 - **账号**：手机号 + 密码登录 / 注册，本地持久化登录状态
+
+### 回收员端
+- **接单大厅**：今日业绩概览、待接订单列表（品类/重量/时间/地址）、一键抢单
+- **我的任务**：进行中 / 已完成，任务详情含客户信息、回收物品、备注
+- **作业流程**：接单 → 出发上门 → 现场称重（按品类填写实际重量，实时计算应付金额与积分）→ 完成结算
+- **我的**：本月 / 累计业绩（单数、重量、金额、减碳）
+
+### 管理后台
+- **数据概览**：今日实时、核心 KPI、订单状态分布、近 14 天趋势、品类占比、回收员排行、用户贡献榜
+- **订单管理**：状态筛选 + 关键词搜索，指派 / 改派回收员，取消订单
+- **用户管理**：按角色筛选、搜索、禁用 / 启用账号、变更角色
+- **运营管理**：品类回收价 / 积分 / 减碳系数调整、商品增删改、兑换发货流转、资讯发布 / 删除
 
 ## 目录结构
 
@@ -36,6 +61,8 @@
 │       ├── shop/        商城 / 商品详情 / 兑换记录
 │       ├── news/        资讯 / 文章详情
 │       ├── profile/     我的 / 积分明细 / 减碳报告
+│       ├── recycler/    回收员端：接单大厅 / 我的任务 / 任务详情(称重) / 我的
+│       ├── admin/       管理后台：数据概览 / 订单 / 用户 / 运营
 │       └── settings/    后端地址设置
 ├── backend/
 │   ├── app/main.py      # FastAPI 路由
@@ -79,16 +106,24 @@ flutter run --dart-define=API_BASE_URL=http://192.168.x.x:8000
 
 ### 3. 演示账号
 
-```
-手机号：13912345678
-密  码：123456
-```
+见上文「三端角色」表格，登录页上可点击标签快速填入。
 
 ### 4. 打包
 
 ```bash
 flutter build web --release
+
+# Android APK（需在 android/key.properties 配置签名，否则回退到 debug 签名）
 flutter build apk --release --dart-define=API_BASE_URL=https://your-api.example.com
+```
+
+签名配置示例 `android/key.properties`（已加入 .gitignore）：
+
+```
+storePassword=xxx
+keyPassword=xxx
+keyAlias=release
+storeFile=../release-key.jks
 ```
 
 ## 后端 API 一览
@@ -110,5 +145,22 @@ flutter build apk --release --dart-define=API_BASE_URL=https://your-api.example.
 | GET / POST | /api/redemptions | 兑换记录 / 兑换 |
 | GET | /api/articles · /api/articles/{id} | 资讯 |
 | POST | /api/articles/{id}/like | 点赞 |
+| **回收员端** | | |
+| GET | /api/recycler/hall | 接单大厅（待接单） |
+| GET | /api/recycler/tasks?status=active\|completed | 我的任务 |
+| POST | /api/recycler/orders/{id}/accept · /depart · /complete | 接单 / 出发 / 称重完成 |
+| GET | /api/recycler/stats | 业绩统计 |
+| **管理后台** | | |
+| GET | /api/admin/dashboard | 数据概览 |
+| GET | /api/admin/orders | 订单列表（筛选/搜索） |
+| POST | /api/admin/orders/{id}/assign · /cancel | 指派 / 取消 |
+| GET / PUT | /api/admin/users | 用户列表 / 状态与角色 |
+| GET | /api/admin/recyclers | 可指派回收员 |
+| PUT | /api/admin/categories/{id} | 品类调价 |
+| POST / PUT / DELETE | /api/admin/products | 商品管理 |
+| GET / PUT | /api/admin/redemptions | 兑换发货 |
+| POST / DELETE | /api/admin/articles | 资讯管理 |
+
+所有回收员 / 管理接口均校验账号角色（`recycler_id` / `admin_id`）。
 
 统一响应格式：`{"code": 0, "message": "success", "data": ...}`

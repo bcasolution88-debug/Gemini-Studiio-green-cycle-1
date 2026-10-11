@@ -167,13 +167,32 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: AppColors.yellow.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(AppRadius.sm),
                               ),
-                              child: const Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.info_outline_rounded, size: 18, color: AppColors.amber),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text('演示账号：13912345678 / 123456',
-                                        style: TextStyle(fontSize: 12, color: AppColors.textDark)),
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.info_outline_rounded, size: 18, color: AppColors.amber),
+                                      SizedBox(width: 8),
+                                      Text('演示账号（点击快速填入）',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textDark)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    children: [
+                                      _demoChip('用户端', '13912345678', '123456',
+                                          Icons.person_rounded, AppColors.forest),
+                                      _demoChip('回收员端', '13800001111', '123456',
+                                          Icons.electric_moped_rounded, AppColors.blue),
+                                      _demoChip('管理后台', '13900000000', 'admin123',
+                                          Icons.admin_panel_settings_rounded, AppColors.purple),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -225,6 +244,36 @@ class _LoginScreenState extends State<LoginScreen> {
               style: TextStyle(
                   color: selected ? Colors.white : AppColors.textGrey,
                   fontWeight: FontWeight.w700)),
+        ),
+      ),
+    );
+  }
+
+  Widget _demoChip(String label, String phone, String pwd, IconData icon, Color color) {
+    final active = _phone.text == phone;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _phone.text = phone;
+        _password.text = pwd;
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? color : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: active ? Colors.white : color),
+            const SizedBox(width: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: active ? Colors.white : color)),
+          ],
         ),
       ),
     );

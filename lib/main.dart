@@ -3,8 +3,10 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/app_provider.dart';
+import 'screens/admin/admin_shell.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'screens/recycler/recycler_shell.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -39,7 +41,11 @@ class _Root extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     if (!app.initialized) return const _Splash();
-    return app.isLoggedIn ? const MainShell() : const LoginScreen();
+    final u = app.user;
+    if (u == null) return const LoginScreen();
+    if (u.isAdmin) return const AdminShell();
+    if (u.isRecycler) return const RecyclerShell();
+    return const MainShell();
   }
 }
 

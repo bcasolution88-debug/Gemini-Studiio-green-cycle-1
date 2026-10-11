@@ -10,6 +10,9 @@ class User {
   final String phone;
   final String nickname;
   final String avatar;
+  final String role; // user / recycler / admin
+  final String status; // active / disabled
+  final int completedOrders;
   final int level;
   final String levelName;
   final int points;
@@ -24,6 +27,9 @@ class User {
     required this.phone,
     required this.nickname,
     required this.avatar,
+    this.role = 'user',
+    this.status = 'active',
+    this.completedOrders = 0,
     required this.level,
     required this.levelName,
     required this.points,
@@ -39,6 +45,9 @@ class User {
         phone: _s(j['phone']),
         nickname: _s(j['nickname'], '环保用户'),
         avatar: _s(j['avatar']),
+        role: _s(j['role'], 'user'),
+        status: _s(j['status'], 'active'),
+        completedOrders: _i(j['completed_orders']),
         level: _i(j['level']),
         levelName: _s(j['level_name'], '环保新人'),
         points: _i(j['points']),
@@ -54,6 +63,11 @@ class User {
     final p = 1 - pointsToNextLevel / nextLevelPoints!;
     return p.clamp(0, 1);
   }
+
+  bool get isRecycler => role == 'recycler';
+  bool get isAdmin => role == 'admin';
+  bool get isDisabled => status == 'disabled';
+  String get roleText => isAdmin ? '管理员' : (isRecycler ? '回收员' : '用户');
 }
 
 class RecycleCategory {
@@ -153,6 +167,7 @@ class RecycleOrder {
   final double? amount;
   final int pointsEarned;
   final double carbonSaved;
+  final String? recyclerId;
   final String? recyclerName;
   final String? recyclerPhone;
   final String? recyclerAvatar;
@@ -174,6 +189,7 @@ class RecycleOrder {
     required this.amount,
     required this.pointsEarned,
     required this.carbonSaved,
+    this.recyclerId,
     required this.recyclerName,
     required this.recyclerPhone,
     required this.recyclerAvatar,
@@ -196,6 +212,7 @@ class RecycleOrder {
         amount: j['amount'] == null ? null : _d(j['amount']),
         pointsEarned: _i(j['points_earned']),
         carbonSaved: _d(j['carbon_saved']),
+        recyclerId: j['recycler_id']?.toString(),
         recyclerName: j['recycler_name']?.toString(),
         recyclerPhone: j['recycler_phone']?.toString(),
         recyclerAvatar: j['recycler_avatar']?.toString(),
@@ -290,6 +307,8 @@ class Product {
 
 class Redemption {
   final String id;
+  final String userNickname;
+  final String userPhone;
   final String productName;
   final String productImage;
   final int points;
@@ -300,6 +319,8 @@ class Redemption {
 
   Redemption({
     required this.id,
+    this.userNickname = '',
+    this.userPhone = '',
     required this.productName,
     required this.productImage,
     required this.points,
@@ -311,6 +332,8 @@ class Redemption {
 
   factory Redemption.fromJson(Map<String, dynamic> j) => Redemption(
         id: _s(j['id']),
+        userNickname: _s(j['user_nickname']),
+        userPhone: _s(j['user_phone']),
         productName: _s(j['product_name']),
         productImage: _s(j['product_image']),
         points: _i(j['points']),
@@ -484,5 +507,124 @@ class HomeData {
         news: ((j['news'] as List?) ?? [])
             .map((e) => Article.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
+      );
+}
+
+// ---------------- 回收员端 ----------------
+class RecyclerAgg {
+  final int count;
+  final double weight;
+  final double amount;
+  final double carbon;
+  RecyclerAgg({required this.count, required this.weight, required this.amount, required this.carbon});
+  factory RecyclerAgg.fromJson(Map<String, dynamic> j) => RecyclerAgg(
+        count: _i(j['count']),
+        weight: _d(j['weight']),
+        amount: _d(j['amount']),
+        carbon: _d(j['carbon']),
+      );
+}
+
+class RecyclerStats {
+  final User recycler;
+  final RecyclerAgg today;
+  final RecyclerAgg month;
+  final RecyclerAgg total;
+  final int activeTasks;
+  final int hallPending;
+  final double rating;
+
+  RecyclerStats({
+    required this.recycler,
+    required this.today,
+    required this.month,
+    required this.total,
+    required this.activeTasks,
+    required this.hallPending,
+    required this.rating,
+  });
+
+  factory RecyclerStats.fromJson(Map<String, dynamic> j) => RecyclerStats(
+        recycler: User.fromJson(Map<String, dynamic>.from(j['recycler'] ?? {})),
+        today: RecyclerAgg.fromJson(Map<String, dynamic>.from(j['today'] ?? {})),
+        month: RecyclerAgg.fromJson(Map<String, dynamic>.from(j['month'] ?? {})),
+        total: RecyclerAgg.fromJson(Map<String, dynamic>.from(j['total'] ?? {})),
+        activeTasks: _i(j['active_tasks']),
+        hallPending: _i(j['hall_pending']),
+        rating: _d(j['rating']),
+      );
+}
+
+// ---------------- 管理后台 ----------------
+class AdminDashboard {
+  final int users;
+  final int recyclers;
+  final int newUsersMonth;
+  final int ordersTotal;
+  final double weightTotal;
+  final double amountTotal;
+  final double carbonTotal;
+  final int pointsTotal;
+  final int todayOrdersCompleted;
+  final double todayWeight;
+  final double todayAmount;
+  final int todayNewOrders;
+  final Map<String, int> statusCounts;
+  final List<Map<String, dynamic>> byCategory;
+  final List<Map<String, dynamic>> trend;
+  final List<Map<String, dynamic>> topRecyclers;
+  final List<Map<String, dynamic>> topUsers;
+  final int redemptionsTotal;
+  final int redemptionsPoints;
+  final int pendingRedemptions;
+
+  AdminDashboard({
+    required this.users,
+    required this.recyclers,
+    required this.newUsersMonth,
+    required this.ordersTotal,
+    required this.weightTotal,
+    required this.amountTotal,
+    required this.carbonTotal,
+    required this.pointsTotal,
+    required this.todayOrdersCompleted,
+    required this.todayWeight,
+    required this.todayAmount,
+    required this.todayNewOrders,
+    required this.statusCounts,
+    required this.byCategory,
+    required this.trend,
+    required this.topRecyclers,
+    required this.topUsers,
+    required this.redemptionsTotal,
+    required this.redemptionsPoints,
+    required this.pendingRedemptions,
+  });
+
+  static List<Map<String, dynamic>> _lm(dynamic v) =>
+      ((v as List?) ?? []).map((e) => Map<String, dynamic>.from(e)).toList();
+
+  factory AdminDashboard.fromJson(Map<String, dynamic> j) => AdminDashboard(
+        users: _i(j['users']),
+        recyclers: _i(j['recyclers']),
+        newUsersMonth: _i(j['new_users_month']),
+        ordersTotal: _i(j['orders_total']),
+        weightTotal: _d(j['weight_total']),
+        amountTotal: _d(j['amount_total']),
+        carbonTotal: _d(j['carbon_total']),
+        pointsTotal: _i(j['points_total']),
+        todayOrdersCompleted: _i(j['today_orders_completed']),
+        todayWeight: _d(j['today_weight']),
+        todayAmount: _d(j['today_amount']),
+        todayNewOrders: _i(j['today_new_orders']),
+        statusCounts: Map<String, dynamic>.from(j['status_counts'] ?? {})
+            .map((k, v) => MapEntry(k, _i(v))),
+        byCategory: _lm(j['by_category']),
+        trend: _lm(j['trend']),
+        topRecyclers: _lm(j['top_recyclers']),
+        topUsers: _lm(j['top_users']),
+        redemptionsTotal: _i(j['redemptions_total']),
+        redemptionsPoints: _i(j['redemptions_points']),
+        pendingRedemptions: _i(j['pending_redemptions']),
       );
 }
