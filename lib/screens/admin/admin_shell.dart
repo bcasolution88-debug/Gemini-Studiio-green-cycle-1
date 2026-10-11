@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../main.dart' show openNotificationTarget;
 import '../../providers/app_provider.dart';
 import '../../theme/app_theme.dart';
+import '../notifications/notifications_screen.dart';
 import 'admin_dashboard_screen.dart';
+import 'admin_finance_screen.dart';
+import 'admin_map_screen.dart';
 import 'admin_operations_screen.dart';
 import 'admin_orders_screen.dart';
 import 'admin_users_screen.dart';
@@ -19,7 +23,7 @@ class AdminShell extends StatefulWidget {
 class _AdminShellState extends State<AdminShell> {
   int _index = 0;
 
-  static const _titles = ['数据概览', '订单管理', '用户管理', '运营管理'];
+  static const _titles = ['数据概览', '订单管理', '用户管理', '运营管理', '财务导出'];
 
   @override
   Widget build(BuildContext context) {
@@ -42,11 +46,21 @@ class _AdminShellState extends State<AdminShell> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: '回收员地图',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminMapScreen())),
+            icon: const Icon(Icons.map_rounded),
+          ),
           Padding(
-            padding: const EdgeInsets.only(right: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Center(
-              child: Text(app.user?.nickname ?? '',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              child: NotificationBell(
+                background: Colors.white.withValues(alpha: 0.12),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => NotificationsScreen(onOpen: (n) => openNotificationTarget(context, n))),
+                ),
+              ),
             ),
           ),
           IconButton(
@@ -63,6 +77,7 @@ class _AdminShellState extends State<AdminShell> {
           AdminOrdersScreen(),
           AdminUsersScreen(),
           AdminOperationsScreen(),
+          AdminFinanceScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -75,6 +90,7 @@ class _AdminShellState extends State<AdminShell> {
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long_rounded, color: AppColors.deepGreen), label: '订单'),
           NavigationDestination(icon: Icon(Icons.people_outline_rounded), selectedIcon: Icon(Icons.people_rounded, color: AppColors.deepGreen), label: '用户'),
           NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune_rounded, color: AppColors.deepGreen), label: '运营'),
+          NavigationDestination(icon: Icon(Icons.account_balance_outlined), selectedIcon: Icon(Icons.account_balance_rounded, color: AppColors.deepGreen), label: '财务'),
         ],
       ),
     );

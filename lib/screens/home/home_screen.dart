@@ -5,7 +5,9 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../main.dart' show openNotificationTarget;
 import '../news/article_detail_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../recycle/create_order_screen.dart';
 import '../recycle/order_detail_screen.dart';
 import '../shop/product_detail_screen.dart';
@@ -116,14 +118,15 @@ class _Header extends StatelessWidget {
                   const Spacer(),
                   _SignInButton(signed: home.signedToday),
                   const SizedBox(width: 8),
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.16),
-                      shape: BoxShape.circle,
+                  NotificationBell(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => NotificationsScreen(
+                          onOpen: (n) => openNotificationTarget(context, n),
+                        ),
+                      ),
                     ),
-                    child: const Icon(Icons.notifications_rounded, color: Colors.white, size: 20),
                   ),
                 ],
               ),

@@ -5,7 +5,10 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../main.dart' show openNotificationTarget;
+import '../../providers/locale_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../notifications/notifications_screen.dart';
 import '../recycle/address_screen.dart';
 import '../settings/server_settings_screen.dart';
 import '../shop/redemptions_screen.dart';
@@ -224,6 +227,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RedemptionsScreen()))),
                     _menu(Icons.location_on_rounded, AppColors.coral, '地址管理', '上门回收地址',
                         () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressScreen()))),
+                    _menu(Icons.notifications_rounded, AppColors.teal, '消息中心', '订单进度、积分到账提醒',
+                        () => Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => NotificationsScreen(onOpen: (n) => openNotificationTarget(context, n))))),
+                    _menu(Icons.translate_rounded, AppColors.purple, '语言 / Language',
+                        context.watch<LocaleProvider>().isZh ? '简体中文 · 点击切换 English' : 'English · Tap to switch 中文',
+                        () => context.read<LocaleProvider>().toggle()),
                     _menu(Icons.dns_rounded, AppColors.blue, '后端服务设置', '切换 API 地址',
                         () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
                         last: true),

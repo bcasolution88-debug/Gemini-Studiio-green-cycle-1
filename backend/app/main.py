@@ -4,18 +4,27 @@ import string
 import uuid
 from datetime import datetime
 
+import csv
+import io
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from .database import db_cursor, init_db, rows_to_list
 from .schemas import (
-    AddressIn,
+    AddressGeoIn,
     ArticleIn,
     AssignOrderRequest,
     CompleteOrderRequest,
     CreateOrderRequest,
+    LocationUpdateRequest,
     LoginRequest,
+    MarkReadRequest,
+    PayOrderRequest,
     ProductIn,
+    ReviewWithdrawRequest,
+    WithdrawRequest,
     RecyclerActionRequest,
     RedeemRequest,
     RegisterRequest,
@@ -26,7 +35,7 @@ from .schemas import (
     UpdateRedemptionStatusRequest,
     UpdateUserStatusRequest,
 )
-from .seed import DEMO_USER_ID, RECYCLERS, seed_if_empty
+from .seed import ADMIN_ID, DEMO_USER_ID, RECYCLERS, seed_if_empty
 
 app = FastAPI(title="绿循环 Green Cycle API", version="1.0.0")
 
@@ -48,6 +57,24 @@ def _now() -> str:
 
 def _ok(data=None, message="success"):
     return {"code": 0, "message": message, "data": data}
+
+
+def _notify(conn, user_id, ntype: str, title: str, body: str, related_id=None):
+    if not user_id:
+        return
+    conn.execute(
+        "INSERT INTO notifications VALUES (?,?,?,?,?,?,?,?)",
+        (f"nt_{uuid.uuid4().hex[:10]}", user_id, ntype, title, body, related_id, 0, _now()),
+    )
+
+
+def _notify_admins(conn, ntype: str, title: str, body: str, related_id=None):
+    for r in conn.execute("SELECT id FROM users WHERE role='admin'").fetchall():
+        _notify(conn, r["id"], ntype, title, body, related_id)
+
+
+RECYCLER_COMMISSION = 0.15  # 回收员服务费比例（按订单金额）
+RECYCLER_BASE_FEE = 8.0     # 每单基础服务费（元）
 
 
 def _level_for(total_points: int) -> int:
@@ -241,14 +268,17 @@ def list_addresses(user_id: str = Query(...)):
 
 
 @app.post("/api/addresses")
-def create_address(req: AddressIn):
+def create_address(req: AddressGeoIn):
     with db_cursor() as conn:
         aid = f"addr_{uuid.uuid4().hex[:8]}"
         if req.is_default:
             conn.execute("UPDATE addresses SET is_default=0 WHERE user_id=?", (req.user_id,))
+        # 未提供坐标时在朝阳区范围内生成一个演示坐标
+        lat = req.lat if req.lat is not None else round(39.92 + random.uniform(-0.02, 0.02), 5)
+        lng = req.lng if req.lng is not None else round(116.46 + random.uniform(-0.03, 0.03), 5)
         conn.execute(
-            "INSERT INTO addresses VALUES (?,?,?,?,?,?,?)",
-            (aid, req.user_id, req.contact_name, req.phone, req.region, req.detail, int(req.is_default)),
+            "INSERT INTO addresses VALUES (?,?,?,?,?,?,?,?,?)",
+            (aid, req.user_id, req.contact_name, req.phone, req.region, req.detail, int(req.is_default), lat, lng),
         )
         return _ok(dict(conn.execute("SELECT * FROM addresses WHERE id=?", (aid,)).fetchone()))
 
@@ -266,6 +296,11 @@ def _order_with_items(conn, order_row) -> dict:
     o["items"] = rows_to_list(conn.execute(
         "SELECT * FROM order_items WHERE order_id=?", (o["id"],)
     ).fetchall())
+    o["recycler_location"] = None
+    if o.get("recycler_id") and o.get("status") in ("accepted", "in_progress"):
+        loc = conn.execute("SELECT * FROM recycler_locations WHERE recycler_id=?", (o["recycler_id"],)).fetchone()
+        if loc:
+            o["recycler_location"] = dict(loc)
     return o
 
 
@@ -305,10 +340,10 @@ def create_order(req: CreateOrderRequest):
         est = sum(i.estimated_weight for i in req.items)
         now = _now()
         conn.execute(
-            "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (oid, order_no, req.user_id, "pending", f"{addr['region']} {addr['detail']}",
              addr["contact_name"], addr["phone"], req.appointment_time, req.remark or "",
-             est, None, None, 0, 0, None, None, None, now, now),
+             est, None, None, 0, 0, None, None, None, None, addr["lat"], addr["lng"], 0, None, now, now),
         )
         for it in req.items:
             cat = conn.execute("SELECT * FROM categories WHERE id=?", (it.category_id,)).fetchone()
@@ -318,6 +353,9 @@ def create_order(req: CreateOrderRequest):
                 "INSERT INTO order_items (order_id, category_id, category_name, estimated_weight) VALUES (?,?,?,?)",
                 (oid, cat["id"], cat["name"], it.estimated_weight),
             )
+        _notify(conn, req.user_id, "order", "预约成功", f"订单 {order_no} 已提交，正在为您匹配回收员", oid)
+        for r in conn.execute("SELECT id FROM users WHERE role='recycler' AND status='active'").fetchall():
+            _notify(conn, r["id"], "order", "新的待接订单", f"{addr['region']} 新增一笔预约（预估 {est:.1f}kg），去接单大厅看看", oid)
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()), "预约成功")
 
 
@@ -355,6 +393,18 @@ def _settle_order(conn, order_row, items, actuals: dict):
     )
     names = "、".join(i["category_name"] for i in items)
     _add_points(conn, order_row["user_id"], points, f"回收订单 {names}", order_row["id"])
+    # 回收员服务费入账
+    if order_row["recycler_id"]:
+        fee = round(RECYCLER_BASE_FEE + amount * RECYCLER_COMMISSION, 2)
+        conn.execute(
+            "INSERT INTO wallet_records VALUES (?,?,?,?,?,?,?)",
+            (f"wr_{uuid.uuid4().hex[:8]}", order_row["recycler_id"], "income", fee,
+             f"订单服务费 {order_row['order_no']}", order_row["id"], _now()),
+        )
+        _notify(conn, order_row["recycler_id"], "wallet", "服务费已入账",
+                f"订单 {order_row['order_no']} 完成，服务费 ¥{fee:.2f} 已入账钱包", order_row["id"])
+    _notify(conn, order_row["user_id"], "points", "回收完成，积分到账",
+            f"{names} 实际 {weight:.1f}kg，回收款 ¥{amount:.2f}，+{points} 积分已到账", order_row["id"])
 
 
 @app.post("/api/orders/{order_id}/advance")
@@ -375,12 +425,14 @@ def advance_order(order_id: str):
                 "UPDATE orders SET status=?, recycler_id=?, recycler_name=?, recycler_phone=?, recycler_avatar=?, updated_at=? WHERE id=?",
                 (nxt, rec[0], rec[1], rec[2], rec[3], _now(), order_id),
             )
+            _notify(conn, row["user_id"], "order", "回收员已接单", f"{rec[1]} 已接单，将按预约时间上门", order_id)
         elif nxt == "completed":
             items = conn.execute("SELECT * FROM order_items WHERE order_id=?", (order_id,)).fetchall()
             actuals = {it["id"]: round(it["estimated_weight"] * random.uniform(0.9, 1.1), 1) for it in items}
             _settle_order(conn, row, items, actuals)
         else:
             conn.execute("UPDATE orders SET status=?, updated_at=? WHERE id=?", (nxt, _now(), order_id))
+            _notify(conn, row["user_id"], "order", "回收员正在赶来", f"{row['recycler_name'] or '回收员'} 已出发，请保持电话畅通", order_id)
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()))
 
 
@@ -561,6 +613,7 @@ def recycler_accept(order_id: str, req: RecyclerActionRequest):
             "UPDATE orders SET status='accepted', recycler_id=?, recycler_name=?, recycler_phone=?, recycler_avatar=?, updated_at=? WHERE id=?",
             (rec["id"], rec["nickname"], rec["phone"], rec["avatar"], _now(), order_id),
         )
+        _notify(conn, row["user_id"], "order", "回收员已接单", f"{rec['nickname']} 已接单，将于 {row['appointment_time']} 上门", order_id)
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "接单成功")
 
 
@@ -574,6 +627,7 @@ def recycler_depart(order_id: str, req: RecyclerActionRequest):
         if row["status"] != "accepted":
             raise HTTPException(400, "当前状态无法出发")
         conn.execute("UPDATE orders SET status='in_progress', updated_at=? WHERE id=?", (_now(), order_id))
+        _notify(conn, row["user_id"], "order", "回收员正在赶来", f"{row['recycler_name'] or '回收员'} 已出发，可在订单详情查看实时位置", order_id)
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "已出发")
 
 
@@ -610,8 +664,12 @@ def recycler_stats(recycler_id: str = Query(...)):
             "SELECT COUNT(*) FROM orders WHERE recycler_id=? AND status IN ('accepted','in_progress')", (recycler_id,)
         ).fetchone()[0]
         pending = conn.execute("SELECT COUNT(*) FROM orders WHERE status='pending'").fetchone()[0]
+        balance = conn.execute("SELECT COALESCE(SUM(amount),0) FROM wallet_records WHERE recycler_id=?", (recycler_id,)).fetchone()[0]
+        unpaid = conn.execute("SELECT COUNT(*) FROM orders WHERE recycler_id=? AND status='completed' AND paid=0", (recycler_id,)).fetchone()[0]
         return _ok({
             "recycler": _user_payload(rec),
+            "balance": round(balance, 2),
+            "unpaid_orders": unpaid,
             "today": agg("AND updated_at LIKE ?", (f"{today}%",)),
             "month": agg("AND updated_at LIKE ?", (f"{month}%",)),
             "total": agg("", ()),
@@ -663,7 +721,10 @@ def admin_dashboard(admin_id: str = Query(...)):
         ).fetchall())
         redemptions = conn.execute("SELECT COUNT(*), COALESCE(SUM(points),0) FROM redemptions").fetchone()
         pending_redemptions = conn.execute("SELECT COUNT(*) FROM redemptions WHERE status='pending'").fetchone()[0]
+        pending_withdrawals = conn.execute("SELECT COUNT(*), COALESCE(SUM(amount),0) FROM withdrawals WHERE status='pending'").fetchone()
         return _ok({
+            "pending_withdrawals": pending_withdrawals[0],
+            "pending_withdrawals_amount": round(pending_withdrawals[1], 2),
             "users": users,
             "recyclers": recyclers,
             "new_users_month": new_users_month,
@@ -720,6 +781,8 @@ def admin_assign(order_id: str, req: AssignOrderRequest, admin_id: str = Query(.
             "UPDATE orders SET status='accepted', recycler_id=?, recycler_name=?, recycler_phone=?, recycler_avatar=?, updated_at=? WHERE id=?",
             (rec["id"], rec["nickname"], rec["phone"], rec["avatar"], _now(), order_id),
         )
+        _notify(conn, rec["id"], "order", "平台为您指派了订单", f"订单 {row['order_no']} · {row['appointment_time']} · {row['address_text']}", order_id)
+        _notify(conn, row["user_id"], "order", "回收员已接单", f"{rec['nickname']} 将为您服务，上门时间 {row['appointment_time']}", order_id)
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "指派成功")
 
 
@@ -733,6 +796,9 @@ def admin_cancel(order_id: str, admin_id: str = Query(...)):
         if row["status"] in ("completed", "cancelled"):
             raise HTTPException(400, "订单已结束")
         conn.execute("UPDATE orders SET status='cancelled', updated_at=? WHERE id=?", (_now(), order_id))
+        _notify(conn, row["user_id"], "order", "订单已被平台取消", f"订单 {row['order_no']} 已取消，如有疑问请联系客服", order_id)
+        if row["recycler_id"]:
+            _notify(conn, row["recycler_id"], "order", "订单已取消", f"平台取消了订单 {row['order_no']}", order_id)
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "已取消")
 
 
@@ -880,3 +946,291 @@ def admin_delete_article(article_id: str, admin_id: str = Query(...)):
         _require_role(conn, admin_id, "admin")
         conn.execute("DELETE FROM articles WHERE id=?", (article_id,))
         return _ok(True)
+
+
+# =====================================================================
+# 消息通知
+# =====================================================================
+@app.get("/api/notifications")
+def list_notifications(user_id: str = Query(...), limit: int = Query(50)):
+    with db_cursor() as conn:
+        rows = conn.execute(
+            "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT ?", (user_id, limit)
+        ).fetchall()
+        unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (user_id,)).fetchone()[0]
+        return _ok({"unread": unread, "items": rows_to_list(rows)})
+
+
+@app.get("/api/notifications/unread-count")
+def unread_count(user_id: str = Query(...), since: str = Query("")):
+    """轮询接口：返回未读数与 since 之后的新消息（用于前端弹出提醒）"""
+    with db_cursor() as conn:
+        unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (user_id,)).fetchone()[0]
+        new_items = []
+        if since:
+            new_items = rows_to_list(conn.execute(
+                "SELECT * FROM notifications WHERE user_id=? AND created_at > ? ORDER BY created_at DESC LIMIT 5",
+                (user_id, since),
+            ).fetchall())
+        return _ok({"unread": unread, "new_items": new_items, "server_time": _now()})
+
+
+@app.post("/api/notifications/read")
+def mark_read(req: MarkReadRequest):
+    with db_cursor() as conn:
+        if req.ids:
+            qs = ",".join("?" * len(req.ids))
+            conn.execute(f"UPDATE notifications SET is_read=1 WHERE user_id=? AND id IN ({qs})", (req.user_id, *req.ids))
+        else:
+            conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (req.user_id,))
+        return _ok(True)
+
+
+@app.delete("/api/notifications/{notification_id}")
+def delete_notification(notification_id: str, user_id: str = Query(...)):
+    with db_cursor() as conn:
+        conn.execute("DELETE FROM notifications WHERE id=? AND user_id=?", (notification_id, user_id))
+        return _ok(True)
+
+
+# =====================================================================
+# 实时定位
+# =====================================================================
+@app.post("/api/recycler/location")
+def update_location(req: LocationUpdateRequest):
+    with db_cursor() as conn:
+        _require_role(conn, req.recycler_id, "recycler", "admin")
+        conn.execute(
+            "INSERT INTO recycler_locations (recycler_id, lat, lng, heading, speed, updated_at) VALUES (?,?,?,?,?,?) "
+            "ON CONFLICT(recycler_id) DO UPDATE SET lat=excluded.lat, lng=excluded.lng, heading=excluded.heading, "
+            "speed=excluded.speed, updated_at=excluded.updated_at",
+            (req.recycler_id, req.lat, req.lng, req.heading, req.speed, _now()),
+        )
+        return _ok({"recycler_id": req.recycler_id, "lat": req.lat, "lng": req.lng, "updated_at": _now()})
+
+
+@app.get("/api/recycler/location/{recycler_id}")
+def get_location(recycler_id: str):
+    with db_cursor() as conn:
+        row = conn.execute("SELECT * FROM recycler_locations WHERE recycler_id=?", (recycler_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "暂无位置信息")
+        return _ok(dict(row))
+
+
+@app.get("/api/admin/locations")
+def admin_locations(admin_id: str = Query(...)):
+    """管理后台：全部回收员实时位置"""
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        rows = conn.execute(
+            "SELECT l.*, u.nickname, u.avatar, u.phone, "
+            "(SELECT COUNT(*) FROM orders o WHERE o.recycler_id=l.recycler_id AND o.status IN ('accepted','in_progress')) AS active_tasks "
+            "FROM recycler_locations l JOIN users u ON u.id=l.recycler_id WHERE u.status='active'"
+        ).fetchall()
+        return _ok(rows_to_list(rows))
+
+
+# =====================================================================
+# 回收员钱包 / 收款结算 / 提现
+# =====================================================================
+@app.post("/api/recycler/orders/{order_id}/pay")
+def recycler_mark_paid(order_id: str, req: PayOrderRequest):
+    """回收员确认已向用户支付回收款"""
+    with db_cursor() as conn:
+        _require_role(conn, req.recycler_id, "recycler", "admin")
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "订单不存在")
+        if row["status"] != "completed":
+            raise HTTPException(400, "订单尚未完成称重")
+        if row["paid"]:
+            raise HTTPException(400, "该订单已结算")
+        if req.pay_method not in ("cash", "wechat", "alipay"):
+            raise HTTPException(400, "支付方式不合法")
+        conn.execute("UPDATE orders SET paid=1, pay_method=?, updated_at=? WHERE id=?", (req.pay_method, _now(), order_id))
+        names = {"cash": "现金", "wechat": "微信", "alipay": "支付宝"}[req.pay_method]
+        _notify(conn, row["user_id"], "wallet", "回收款已支付", f"订单 {row['order_no']} 回收款 ¥{row['amount']:.2f} 已通过{names}支付", order_id)
+        return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "已标记结算")
+
+
+@app.get("/api/recycler/wallet")
+def recycler_wallet(recycler_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, recycler_id, "recycler", "admin")
+        balance = conn.execute("SELECT COALESCE(SUM(amount),0) FROM wallet_records WHERE recycler_id=?", (recycler_id,)).fetchone()[0]
+        income_total = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) FROM wallet_records WHERE recycler_id=? AND type='income'", (recycler_id,)
+        ).fetchone()[0]
+        month = datetime.now().strftime("%Y-%m")
+        income_month = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) FROM wallet_records WHERE recycler_id=? AND type='income' AND created_at LIKE ?",
+            (recycler_id, f"{month}%"),
+        ).fetchone()[0]
+        withdrawn = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) FROM withdrawals WHERE recycler_id=? AND status='approved'", (recycler_id,)
+        ).fetchone()[0]
+        pending_wd = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) FROM withdrawals WHERE recycler_id=? AND status='pending'", (recycler_id,)
+        ).fetchone()[0]
+        records = rows_to_list(conn.execute(
+            "SELECT * FROM wallet_records WHERE recycler_id=? ORDER BY created_at DESC LIMIT 100", (recycler_id,)
+        ).fetchall())
+        withdrawals = rows_to_list(conn.execute(
+            "SELECT * FROM withdrawals WHERE recycler_id=? ORDER BY created_at DESC LIMIT 50", (recycler_id,)
+        ).fetchall())
+        unpaid = rows_to_list(conn.execute(
+            "SELECT * FROM orders WHERE recycler_id=? AND status='completed' AND paid=0 ORDER BY updated_at DESC", (recycler_id,)
+        ).fetchall())
+        paid_total = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) FROM orders WHERE recycler_id=? AND status='completed' AND paid=1", (recycler_id,)
+        ).fetchone()[0]
+        return _ok({
+            "balance": round(balance, 2),
+            "income_total": round(income_total, 2),
+            "income_month": round(income_month, 2),
+            "withdrawn": round(withdrawn, 2),
+            "pending_withdraw": round(pending_wd, 2),
+            "paid_to_users_total": round(paid_total, 2),
+            "commission_rate": RECYCLER_COMMISSION,
+            "base_fee": RECYCLER_BASE_FEE,
+            "records": records,
+            "withdrawals": withdrawals,
+            "unpaid_orders": [_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (o["id"],)).fetchone()) for o in unpaid],
+        })
+
+
+@app.post("/api/recycler/withdraw")
+def recycler_withdraw(req: WithdrawRequest):
+    with db_cursor() as conn:
+        rec = _require_role(conn, req.recycler_id, "recycler", "admin")
+        balance = conn.execute("SELECT COALESCE(SUM(amount),0) FROM wallet_records WHERE recycler_id=?", (req.recycler_id,)).fetchone()[0]
+        if req.amount < 10:
+            raise HTTPException(400, "单次提现金额不得低于 ¥10")
+        if req.amount > balance + 1e-6:
+            raise HTTPException(400, f"余额不足，当前可提现 ¥{balance:.2f}")
+        wid = f"wd_{uuid.uuid4().hex[:8]}"
+        conn.execute(
+            "INSERT INTO withdrawals VALUES (?,?,?,?,?,?,?,?,?)",
+            (wid, req.recycler_id, rec["nickname"], round(req.amount, 2), req.account, "pending", "", _now(), None),
+        )
+        # 冻结：先从余额扣除，驳回时退回
+        conn.execute(
+            "INSERT INTO wallet_records VALUES (?,?,?,?,?,?,?)",
+            (f"wr_{uuid.uuid4().hex[:8]}", req.recycler_id, "withdraw", -round(req.amount, 2), f"提现申请 {req.account}", wid, _now()),
+        )
+        _notify(conn, req.recycler_id, "wallet", "提现申请已提交", f"¥{req.amount:.2f} 提现申请审核中，预计 1-3 个工作日到账", wid)
+        _notify_admins(conn, "wallet", "新的提现申请", f"{rec['nickname']} 申请提现 ¥{req.amount:.2f}，请及时审核", wid)
+        return _ok(dict(conn.execute("SELECT * FROM withdrawals WHERE id=?", (wid,)).fetchone()), "提现申请已提交")
+
+
+@app.get("/api/admin/withdrawals")
+def admin_withdrawals(admin_id: str = Query(...), status: str = Query("all")):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        if status == "all":
+            rows = conn.execute("SELECT * FROM withdrawals ORDER BY (status='pending') DESC, created_at DESC").fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM withdrawals WHERE status=? ORDER BY created_at DESC", (status,)).fetchall()
+        return _ok(rows_to_list(rows))
+
+
+@app.post("/api/admin/withdrawals/{withdrawal_id}/review")
+def admin_review_withdrawal(withdrawal_id: str, req: ReviewWithdrawRequest, admin_id: str = Query(...)):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        row = conn.execute("SELECT * FROM withdrawals WHERE id=?", (withdrawal_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "提现记录不存在")
+        if row["status"] != "pending":
+            raise HTTPException(400, "该申请已处理")
+        new_status = "approved" if req.approve else "rejected"
+        conn.execute(
+            "UPDATE withdrawals SET status=?, remark=?, reviewed_at=? WHERE id=?",
+            (new_status, req.remark or "", _now(), withdrawal_id),
+        )
+        if not req.approve:
+            # 退回冻结金额
+            conn.execute(
+                "INSERT INTO wallet_records VALUES (?,?,?,?,?,?,?)",
+                (f"wr_{uuid.uuid4().hex[:8]}", row["recycler_id"], "payout", row["amount"], "提现被驳回，金额退回", withdrawal_id, _now()),
+            )
+            _notify(conn, row["recycler_id"], "wallet", "提现申请被驳回", f"¥{row['amount']:.2f} 已退回钱包。原因：{req.remark or '未说明'}", withdrawal_id)
+        else:
+            _notify(conn, row["recycler_id"], "wallet", "提现已到账", f"¥{row['amount']:.2f} 已打款至 {row['account']}", withdrawal_id)
+        return _ok(dict(conn.execute("SELECT * FROM withdrawals WHERE id=?", (withdrawal_id,)).fetchone()), "审核完成")
+
+
+# =====================================================================
+# 管理后台数据导出（CSV，带 UTF-8 BOM 以兼容 Excel）
+# =====================================================================
+def _csv_response(filename: str, header: list, rows: list) -> StreamingResponse:
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    w = csv.writer(buf)
+    w.writerow(header)
+    for r in rows:
+        w.writerow(r)
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/admin/export/{dataset}")
+def admin_export(dataset: str, admin_id: str = Query(...), status: str = Query("all"),
+                 date_from: str = Query(""), date_to: str = Query("")):
+    with db_cursor() as conn:
+        _require_role(conn, admin_id, "admin")
+        stamp = datetime.now().strftime("%Y%m%d_%H%M")
+        if dataset == "orders":
+            sql = "SELECT * FROM orders WHERE 1=1"
+            params = []
+            if status != "all":
+                sql += " AND status=?"; params.append(status)
+            if date_from:
+                sql += " AND created_at >= ?"; params.append(date_from)
+            if date_to:
+                sql += " AND created_at <= ?"; params.append(date_to + " 23:59:59")
+            sql += " ORDER BY created_at DESC"
+            rows = conn.execute(sql, params).fetchall()
+            status_map = {"pending": "待接单", "accepted": "已接单", "in_progress": "上门中", "completed": "已完成", "cancelled": "已取消"}
+            out = []
+            for o in rows:
+                items = conn.execute("SELECT category_name, estimated_weight, actual_weight FROM order_items WHERE order_id=?", (o["id"],)).fetchall()
+                out.append([
+                    o["order_no"], status_map.get(o["status"], o["status"]), o["contact_name"], o["contact_phone"], o["address_text"],
+                    o["appointment_time"], "；".join(f"{i['category_name']}({i['estimated_weight']}kg)" for i in items),
+                    o["estimated_weight"], o["actual_weight"] or "", o["amount"] or "", o["points_earned"], o["carbon_saved"],
+                    o["recycler_name"] or "", "是" if o["paid"] else "否", o["pay_method"] or "", o["created_at"], o["updated_at"],
+                ])
+            return _csv_response(f"orders_{stamp}.csv",
+                ["订单号", "状态", "联系人", "手机号", "地址", "预约时间", "品类明细", "预估重量kg", "实际重量kg", "金额", "积分", "减碳kg", "回收员", "已结算", "支付方式", "创建时间", "更新时间"], out)
+        if dataset == "users":
+            rows = conn.execute("SELECT * FROM users ORDER BY created_at DESC").fetchall()
+            role_map = {"user": "用户", "recycler": "回收员", "admin": "管理员"}
+            out = [[u["id"], u["nickname"], u["phone"], role_map.get(u["role"], u["role"]), "正常" if u["status"] == "active" else "禁用",
+                    u["level"], u["points"], u["total_points"], u["total_weight"], u["total_carbon"], u["created_at"]] for u in rows]
+            return _csv_response(f"users_{stamp}.csv",
+                ["ID", "昵称", "手机号", "角色", "状态", "等级", "可用积分", "累计积分", "累计回收kg", "累计减碳kg", "注册时间"], out)
+        if dataset == "redemptions":
+            rows = conn.execute("SELECT r.*, u.nickname, u.phone FROM redemptions r JOIN users u ON u.id=r.user_id ORDER BY r.created_at DESC").fetchall()
+            st = {"pending": "待发放", "shipped": "已发货", "completed": "已完成"}
+            out = [[r["id"], r["nickname"], r["phone"], r["product_name"], r["quantity"], r["points"], st.get(r["status"], r["status"]), r["code"], r["created_at"]] for r in rows]
+            return _csv_response(f"redemptions_{stamp}.csv", ["ID", "用户", "手机号", "商品", "数量", "积分", "状态", "兑换码", "时间"], out)
+        if dataset == "withdrawals":
+            rows = conn.execute("SELECT * FROM withdrawals ORDER BY created_at DESC").fetchall()
+            st = {"pending": "待审核", "approved": "已打款", "rejected": "已驳回"}
+            out = [[w["id"], w["recycler_name"], w["amount"], w["account"], st.get(w["status"], w["status"]), w["remark"] or "", w["created_at"], w["reviewed_at"] or ""] for w in rows]
+            return _csv_response(f"withdrawals_{stamp}.csv", ["ID", "回收员", "金额", "收款账户", "状态", "备注", "申请时间", "审核时间"], out)
+        if dataset == "points":
+            rows = conn.execute("SELECT p.*, u.nickname FROM point_records p JOIN users u ON u.id=p.user_id ORDER BY p.created_at DESC").fetchall()
+            out = [[p["id"], p["nickname"], "收入" if p["amount"] > 0 else "支出", p["amount"], p["title"], p["created_at"]] for p in rows]
+            return _csv_response(f"points_{stamp}.csv", ["ID", "用户", "类型", "积分", "说明", "时间"], out)
+        if dataset == "categories":
+            rows = conn.execute("SELECT * FROM categories ORDER BY sort_order").fetchall()
+            out = [[c["id"], c["name"], c["price_per_kg"], c["points_per_kg"], c["carbon_per_kg"], c["description"]] for c in rows]
+            return _csv_response(f"categories_{stamp}.csv", ["ID", "品类", "单价/kg", "积分/kg", "减碳kg/kg", "说明"], out)
+        raise HTTPException(404, "不支持的数据集")

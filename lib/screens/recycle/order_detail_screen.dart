@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/location_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/order_map.dart';
 
 /// 订单详情 + 进度跟踪
 class OrderDetailScreen extends StatefulWidget {
@@ -23,6 +28,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _loading = true;
   bool _acting = false;
   String? _error;
+  Timer? _liveTimer;
 
   static const _steps = [
     ('pending', '已下单', Icons.edit_calendar_rounded),
@@ -40,6 +46,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _liveTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -47,10 +59,31 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     });
     try {
       _order = await _api.getOrder(widget.orderId);
+      _syncLiveTimer();
     } catch (e) {
       _error = e.toString();
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// 上门中时每 6 秒刷新一次回收员位置
+  void _syncLiveTimer() {
+    final live = _order?.status == 'in_progress' || _order?.status == 'accepted';
+    if (live && _liveTimer == null) {
+      _liveTimer = Timer.periodic(const Duration(seconds: 6), (_) async {
+        try {
+          final o = await _api.getOrder(widget.orderId);
+          if (mounted) setState(() => _order = o);
+          if (!o.isActive) {
+            _liveTimer?.cancel();
+            _liveTimer = null;
+          }
+        } catch (_) {}
+      });
+    } else if (!live) {
+      _liveTimer?.cancel();
+      _liveTimer = null;
     }
   }
 
@@ -143,6 +176,40 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
               const SizedBox(height: 16),
 
+              // 实时地图
+              if (o.hasLocation && o.status != 'cancelled') ...[
+                SoftCard(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const Icon(Icons.map_rounded, size: 18, color: AppColors.forest),
+                        const SizedBox(width: 6),
+                        Text(o.recyclerLocation != null ? '回收员实时位置' : '上门地址',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        const Spacer(),
+                        if (o.recyclerLocation != null)
+                          Row(children: [
+                            Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle)),
+                            const SizedBox(width: 4),
+                            Text('更新于 ${o.recyclerLocation!.updatedAt.length >= 16 ? o.recyclerLocation!.updatedAt.substring(11, 16) : ''}',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
+                          ]),
+                      ]),
+                      const SizedBox(height: 10),
+                      OrderMap(
+                        destination: LatLng(o.lat!, o.lng!),
+                        recycler: o.recyclerLocation == null ? null : LatLng(o.recyclerLocation!.lat, o.recyclerLocation!.lng),
+                        recyclerAvatar: o.recyclerAvatar,
+                        height: 200,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               // 回收员
               if (o.recyclerName != null)
                 SoftCard(
@@ -166,11 +233,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           ],
                         ),
                       ),
-                      IconBadge(
-                        icon: Icons.phone_rounded,
-                        color: AppColors.forest,
-                        size: 42,
-                        iconSize: 20,
+                      GestureDetector(
+                        onTap: () => LocationService.dial(o.recyclerPhone ?? ''),
+                        child: const IconBadge(
+                          icon: Icons.phone_rounded,
+                          color: AppColors.forest,
+                          size: 42,
+                          iconSize: 20,
+                        ),
                       ),
                     ],
                   ),
@@ -206,6 +276,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       _kv('回收金额', '¥${o.amount?.toStringAsFixed(2) ?? '-'}', color: AppColors.coral),
                       _kv('获得积分', '+${o.pointsEarned}', color: AppColors.amber),
                       _kv('减碳量', '${o.carbonSaved.toStringAsFixed(2)} kg CO₂', color: AppColors.forest),
+                      _kv('回收款', o.paid ? '已通过${o.payMethodText}支付' : '待回收员支付',
+                          color: o.paid ? AppColors.forest : AppColors.orange),
                     ],
                   ],
                 ),

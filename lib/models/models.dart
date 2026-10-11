@@ -110,6 +110,8 @@ class Address {
   final String region;
   final String detail;
   final bool isDefault;
+  final double? lat;
+  final double? lng;
 
   Address({
     required this.id,
@@ -118,6 +120,8 @@ class Address {
     required this.region,
     required this.detail,
     required this.isDefault,
+    this.lat,
+    this.lng,
   });
 
   factory Address.fromJson(Map<String, dynamic> j) => Address(
@@ -127,6 +131,8 @@ class Address {
         region: _s(j['region']),
         detail: _s(j['detail']),
         isDefault: _b(j['is_default']),
+        lat: j['lat'] == null ? null : _d(j['lat']),
+        lng: j['lng'] == null ? null : _d(j['lng']),
       );
 
   String get full => '$region $detail';
@@ -171,6 +177,11 @@ class RecycleOrder {
   final String? recyclerName;
   final String? recyclerPhone;
   final String? recyclerAvatar;
+  final double? lat;
+  final double? lng;
+  final bool paid;
+  final String? payMethod;
+  final RecyclerLocation? recyclerLocation;
   final String createdAt;
   final String updatedAt;
   final List<OrderItem> items;
@@ -193,6 +204,11 @@ class RecycleOrder {
     required this.recyclerName,
     required this.recyclerPhone,
     required this.recyclerAvatar,
+    this.lat,
+    this.lng,
+    this.paid = false,
+    this.payMethod,
+    this.recyclerLocation,
     required this.createdAt,
     required this.updatedAt,
     required this.items,
@@ -216,6 +232,13 @@ class RecycleOrder {
         recyclerName: j['recycler_name']?.toString(),
         recyclerPhone: j['recycler_phone']?.toString(),
         recyclerAvatar: j['recycler_avatar']?.toString(),
+        lat: j['lat'] == null ? null : _d(j['lat']),
+        lng: j['lng'] == null ? null : _d(j['lng']),
+        paid: _b(j['paid']),
+        payMethod: j['pay_method']?.toString(),
+        recyclerLocation: j['recycler_location'] == null
+            ? null
+            : RecyclerLocation.fromJson(Map<String, dynamic>.from(j['recycler_location'])),
         createdAt: _s(j['created_at']),
         updatedAt: _s(j['updated_at']),
         items: ((j['items'] as List?) ?? [])
@@ -243,6 +266,199 @@ class RecycleOrder {
   bool get isActive => status == 'pending' || status == 'accepted' || status == 'in_progress';
   bool get canCancel => status == 'pending' || status == 'accepted';
   String get categoryNames => items.map((e) => e.categoryName).join('、');
+  bool get hasLocation => lat != null && lng != null;
+  String get payMethodText {
+    switch (payMethod) {
+      case 'cash':
+        return '现金';
+      case 'wechat':
+        return '微信';
+      case 'alipay':
+        return '支付宝';
+      default:
+        return '未结算';
+    }
+  }
+}
+
+class RecyclerLocation {
+  final String recyclerId;
+  final double lat;
+  final double lng;
+  final double? heading;
+  final double? speed;
+  final String updatedAt;
+  final String nickname;
+  final String avatar;
+  final String phone;
+  final int activeTasks;
+
+  RecyclerLocation({
+    required this.recyclerId,
+    required this.lat,
+    required this.lng,
+    this.heading,
+    this.speed,
+    required this.updatedAt,
+    this.nickname = '',
+    this.avatar = '',
+    this.phone = '',
+    this.activeTasks = 0,
+  });
+
+  factory RecyclerLocation.fromJson(Map<String, dynamic> j) => RecyclerLocation(
+        recyclerId: _s(j['recycler_id']),
+        lat: _d(j['lat']),
+        lng: _d(j['lng']),
+        heading: j['heading'] == null ? null : _d(j['heading']),
+        speed: j['speed'] == null ? null : _d(j['speed']),
+        updatedAt: _s(j['updated_at']),
+        nickname: _s(j['nickname']),
+        avatar: _s(j['avatar']),
+        phone: _s(j['phone']),
+        activeTasks: _i(j['active_tasks']),
+      );
+}
+
+class AppNotification {
+  final String id;
+  final String type; // order / points / wallet / system
+  final String title;
+  final String body;
+  final String? relatedId;
+  final bool isRead;
+  final String createdAt;
+
+  AppNotification({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.body,
+    this.relatedId,
+    required this.isRead,
+    required this.createdAt,
+  });
+
+  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
+        id: _s(j['id']),
+        type: _s(j['type'], 'system'),
+        title: _s(j['title']),
+        body: _s(j['body']),
+        relatedId: j['related_id']?.toString(),
+        isRead: _b(j['is_read']),
+        createdAt: _s(j['created_at']),
+      );
+
+  AppNotification copyWith({bool? isRead}) => AppNotification(
+        id: id, type: type, title: title, body: body, relatedId: relatedId,
+        isRead: isRead ?? this.isRead, createdAt: createdAt);
+}
+
+class WalletRecord {
+  final String id;
+  final String type; // income / payout / withdraw
+  final double amount;
+  final String title;
+  final String? relatedId;
+  final String createdAt;
+
+  WalletRecord({
+    required this.id,
+    required this.type,
+    required this.amount,
+    required this.title,
+    this.relatedId,
+    required this.createdAt,
+  });
+
+  factory WalletRecord.fromJson(Map<String, dynamic> j) => WalletRecord(
+        id: _s(j['id']),
+        type: _s(j['type']),
+        amount: _d(j['amount']),
+        title: _s(j['title']),
+        relatedId: j['related_id']?.toString(),
+        createdAt: _s(j['created_at']),
+      );
+}
+
+class Withdrawal {
+  final String id;
+  final String recyclerId;
+  final String recyclerName;
+  final double amount;
+  final String account;
+  final String status; // pending / approved / rejected
+  final String remark;
+  final String createdAt;
+  final String? reviewedAt;
+
+  Withdrawal({
+    required this.id,
+    required this.recyclerId,
+    required this.recyclerName,
+    required this.amount,
+    required this.account,
+    required this.status,
+    required this.remark,
+    required this.createdAt,
+    this.reviewedAt,
+  });
+
+  factory Withdrawal.fromJson(Map<String, dynamic> j) => Withdrawal(
+        id: _s(j['id']),
+        recyclerId: _s(j['recycler_id']),
+        recyclerName: _s(j['recycler_name']),
+        amount: _d(j['amount']),
+        account: _s(j['account']),
+        status: _s(j['status'], 'pending'),
+        remark: _s(j['remark']),
+        createdAt: _s(j['created_at']),
+        reviewedAt: j['reviewed_at']?.toString(),
+      );
+
+  String get statusText => status == 'approved' ? '已打款' : (status == 'rejected' ? '已驳回' : '审核中');
+}
+
+class WalletData {
+  final double balance;
+  final double incomeTotal;
+  final double incomeMonth;
+  final double withdrawn;
+  final double pendingWithdraw;
+  final double paidToUsersTotal;
+  final double commissionRate;
+  final double baseFee;
+  final List<WalletRecord> records;
+  final List<Withdrawal> withdrawals;
+  final List<RecycleOrder> unpaidOrders;
+
+  WalletData({
+    required this.balance,
+    required this.incomeTotal,
+    required this.incomeMonth,
+    required this.withdrawn,
+    required this.pendingWithdraw,
+    required this.paidToUsersTotal,
+    required this.commissionRate,
+    required this.baseFee,
+    required this.records,
+    required this.withdrawals,
+    required this.unpaidOrders,
+  });
+
+  factory WalletData.fromJson(Map<String, dynamic> j) => WalletData(
+        balance: _d(j['balance']),
+        incomeTotal: _d(j['income_total']),
+        incomeMonth: _d(j['income_month']),
+        withdrawn: _d(j['withdrawn']),
+        pendingWithdraw: _d(j['pending_withdraw']),
+        paidToUsersTotal: _d(j['paid_to_users_total']),
+        commissionRate: _d(j['commission_rate']),
+        baseFee: _d(j['base_fee']),
+        records: ((j['records'] as List?) ?? []).map((e) => WalletRecord.fromJson(Map<String, dynamic>.from(e))).toList(),
+        withdrawals: ((j['withdrawals'] as List?) ?? []).map((e) => Withdrawal.fromJson(Map<String, dynamic>.from(e))).toList(),
+        unpaidOrders: ((j['unpaid_orders'] as List?) ?? []).map((e) => RecycleOrder.fromJson(Map<String, dynamic>.from(e))).toList(),
+      );
 }
 
 class PointRecord {
@@ -533,6 +749,8 @@ class RecyclerStats {
   final int activeTasks;
   final int hallPending;
   final double rating;
+  final double balance;
+  final int unpaidOrders;
 
   RecyclerStats({
     required this.recycler,
@@ -542,6 +760,8 @@ class RecyclerStats {
     required this.activeTasks,
     required this.hallPending,
     required this.rating,
+    this.balance = 0,
+    this.unpaidOrders = 0,
   });
 
   factory RecyclerStats.fromJson(Map<String, dynamic> j) => RecyclerStats(
@@ -552,6 +772,8 @@ class RecyclerStats {
         activeTasks: _i(j['active_tasks']),
         hallPending: _i(j['hall_pending']),
         rating: _d(j['rating']),
+        balance: _d(j['balance']),
+        unpaidOrders: _i(j['unpaid_orders']),
       );
 }
 
@@ -577,6 +799,8 @@ class AdminDashboard {
   final int redemptionsTotal;
   final int redemptionsPoints;
   final int pendingRedemptions;
+  final int pendingWithdrawals;
+  final double pendingWithdrawalsAmount;
 
   AdminDashboard({
     required this.users,
@@ -599,6 +823,8 @@ class AdminDashboard {
     required this.redemptionsTotal,
     required this.redemptionsPoints,
     required this.pendingRedemptions,
+    this.pendingWithdrawals = 0,
+    this.pendingWithdrawalsAmount = 0,
   });
 
   static List<Map<String, dynamic>> _lm(dynamic v) =>
@@ -626,5 +852,7 @@ class AdminDashboard {
         redemptionsTotal: _i(j['redemptions_total']),
         redemptionsPoints: _i(j['redemptions_points']),
         pendingRedemptions: _i(j['pending_redemptions']),
+        pendingWithdrawals: _i(j['pending_withdrawals']),
+        pendingWithdrawalsAmount: _d(j['pending_withdrawals_amount']),
       );
 }

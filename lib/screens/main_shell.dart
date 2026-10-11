@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'home/home_screen.dart';
 import 'news/news_screen.dart';
@@ -81,16 +82,18 @@ class _BottomBar extends StatelessWidget {
   final ValueChanged<int> onTap;
   const _BottomBar({required this.index, required this.onTap});
 
-  static const _items = [
-    (Icons.home_rounded, Icons.home_outlined, '首页'),
-    (Icons.receipt_long_rounded, Icons.receipt_long_outlined, '订单'),
-    (Icons.card_giftcard_rounded, Icons.card_giftcard_outlined, '商城'),
-    (Icons.article_rounded, Icons.article_outlined, '资讯'),
-    (Icons.person_rounded, Icons.person_outline_rounded, '我的'),
+  static const _icons = [
+    (Icons.home_rounded, Icons.home_outlined),
+    (Icons.receipt_long_rounded, Icons.receipt_long_outlined),
+    (Icons.card_giftcard_rounded, Icons.card_giftcard_outlined),
+    (Icons.article_rounded, Icons.article_outlined),
+    (Icons.person_rounded, Icons.person_outline_rounded),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final labels = [l.home, l.orders, l.shop, l.news, l.mine];
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -109,21 +112,21 @@ class _BottomBar extends StatelessWidget {
           height: 64,
           child: Row(
             children: [
-              _item(0),
-              _item(1),
-              const Expanded(
+              _item(0, labels[0]),
+              _item(1, labels[1]),
+              Expanded(
                 child: Center(
                   child: Padding(
-                    padding: EdgeInsets.only(top: 34),
-                    child: Text('一键回收',
-                        style: TextStyle(
+                    padding: const EdgeInsets.only(top: 34),
+                    child: Text(context.l10n.oneTapRecycle,
+                        style: const TextStyle(
                             fontSize: 10, color: AppColors.forest, fontWeight: FontWeight.w800)),
                   ),
                 ),
               ),
-              _item(2),
-              _item(3),
-              _item(4),
+              _item(2, labels[2]),
+              _item(3, labels[3]),
+              _item(4, labels[4]),
             ],
           ),
         ),
@@ -131,8 +134,8 @@ class _BottomBar extends StatelessWidget {
     );
   }
 
-  Widget _item(int i) {
-    final (active, inactive, label) = _items[i];
+  Widget _item(int i, String label) {
+    final (active, inactive) = _icons[i];
     final selected = index == i;
     return Expanded(
       child: InkWell(

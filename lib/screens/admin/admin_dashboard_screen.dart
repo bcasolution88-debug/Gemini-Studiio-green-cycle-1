@@ -104,6 +104,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               _kpi('积分兑换', '${d.redemptionsTotal}', '待发放 ${d.pendingRedemptions} · 消耗 ${d.redemptionsPoints} 分', Icons.card_giftcard_rounded, AppColors.pink),
             ],
           ),
+          if (d.pendingWithdrawals > 0) ...[
+            const SizedBox(height: 12),
+            SoftCard(
+              color: AppColors.yellow.withValues(alpha: 0.18),
+              padding: const EdgeInsets.all(14),
+              child: Row(children: [
+                const IconBadge(icon: Icons.outbox_rounded, color: AppColors.amber, size: 40, iconSize: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text('有 ${d.pendingWithdrawals} 笔提现申请待审核，合计 ¥${d.pendingWithdrawalsAmount.toStringAsFixed(2)}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                ),
+                const Text('前往「财务」处理', style: TextStyle(fontSize: 11, color: AppColors.textGrey)),
+              ]),
+            ),
+          ],
           const SizedBox(height: 14),
           // 订单状态
           SoftCard(

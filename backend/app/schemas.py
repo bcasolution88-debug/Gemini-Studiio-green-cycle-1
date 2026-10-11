@@ -115,3 +115,38 @@ class UpdateRedemptionStatusRequest(BaseModel):
 
 class AssignOrderRequest(BaseModel):
     recycler_id: str
+
+
+# ---------- 位置 / 通知 / 钱包 ----------
+class LocationUpdateRequest(BaseModel):
+    recycler_id: str
+    lat: float
+    lng: float
+    heading: Optional[float] = None
+    speed: Optional[float] = None
+
+
+class AddressGeoIn(AddressIn):
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+class MarkReadRequest(BaseModel):
+    user_id: str
+    ids: Optional[List[str]] = None  # 为空则全部已读
+
+
+class PayOrderRequest(BaseModel):
+    recycler_id: str
+    pay_method: str  # cash / wechat / alipay
+
+
+class WithdrawRequest(BaseModel):
+    recycler_id: str
+    amount: float = Field(..., gt=0)
+    account: str
+
+
+class ReviewWithdrawRequest(BaseModel):
+    approve: bool
+    remark: Optional[str] = ""

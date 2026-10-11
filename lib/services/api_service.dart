@@ -312,4 +312,76 @@ extension RoleApi on ApiService {
 
   Future<void> adminDeleteArticle(String adminId, String id) =>
       _delete('/api/admin/articles/$id?admin_id=$adminId');
+
+  // ---------- 通知 ----------
+  Future<(int, List<AppNotification>)> notifications(String userId) async {
+    final d = Map<String, dynamic>.from(await _get('/api/notifications', {'user_id': userId}));
+    return ((d['unread'] as num?)?.toInt() ?? 0, _list(d['items'], AppNotification.fromJson));
+  }
+
+  Future<Map<String, dynamic>> unreadCount(String userId, {String since = ''}) async =>
+      Map<String, dynamic>.from(
+          await _get('/api/notifications/unread-count', {'user_id': userId, 'since': since}));
+
+  Future<void> markRead(String userId, {List<String>? ids}) =>
+      _post('/api/notifications/read', {'user_id': userId, if (ids != null) 'ids': ids});
+
+  Future<void> deleteNotification(String userId, String id) =>
+      _delete('/api/notifications/$id?user_id=$userId');
+
+  // ---------- 定位 ----------
+  Future<void> updateLocation(String recyclerId, double lat, double lng,
+          {double? heading, double? speed}) =>
+      _post('/api/recycler/location', {
+        'recycler_id': recyclerId,
+        'lat': lat,
+        'lng': lng,
+        if (heading != null) 'heading': heading,
+        if (speed != null) 'speed': speed,
+      });
+
+  Future<RecyclerLocation> recyclerLocation(String recyclerId) async =>
+      RecyclerLocation.fromJson(
+          Map<String, dynamic>.from(await _get('/api/recycler/location/$recyclerId')));
+
+  Future<List<RecyclerLocation>> adminLocations(String adminId) async =>
+      _list(await _get('/api/admin/locations', {'admin_id': adminId}), RecyclerLocation.fromJson);
+
+  // ---------- 钱包 ----------
+  Future<WalletData> recyclerWallet(String recyclerId) async => WalletData.fromJson(
+      Map<String, dynamic>.from(await _get('/api/recycler/wallet', {'recycler_id': recyclerId})));
+
+  Future<RecycleOrder> recyclerMarkPaid(String orderId, String recyclerId, String method) async =>
+      RecycleOrder.fromJson(Map<String, dynamic>.from(await _post(
+          '/api/recycler/orders/$orderId/pay', {'recycler_id': recyclerId, 'pay_method': method})));
+
+  Future<Withdrawal> recyclerWithdraw(String recyclerId, double amount, String account) async =>
+      Withdrawal.fromJson(Map<String, dynamic>.from(await _post('/api/recycler/withdraw',
+          {'recycler_id': recyclerId, 'amount': amount, 'account': account})));
+
+  Future<List<Withdrawal>> adminWithdrawals(String adminId, {String status = 'all'}) async =>
+      _list(await _get('/api/admin/withdrawals', {'admin_id': adminId, 'status': status}),
+          Withdrawal.fromJson);
+
+  Future<Withdrawal> adminReviewWithdrawal(String adminId, String id, bool approve,
+          {String remark = ''}) async =>
+      Withdrawal.fromJson(Map<String, dynamic>.from(await _post(
+          '/api/admin/withdrawals/$id/review?admin_id=$adminId',
+          {'approve': approve, 'remark': remark})));
+
+  // ---------- 导出 ----------
+  Uri exportUri(String adminId, String dataset,
+          {String status = 'all', String dateFrom = '', String dateTo = ''}) =>
+      _uri('/api/admin/export/$dataset', {
+        'admin_id': adminId,
+        'status': status,
+        if (dateFrom.isNotEmpty) 'date_from': dateFrom,
+        if (dateTo.isNotEmpty) 'date_to': dateTo,
+      });
+
+  Future<String> exportCsv(String adminId, String dataset, {String status = 'all'}) async {
+    final res = await http.get(exportUri(adminId, dataset, status: status));
+    if (res.statusCode >= 400) throw ApiException('导出失败 (${res.statusCode})');
+    return utf8.decode(res.bodyBytes);
+  }
 }

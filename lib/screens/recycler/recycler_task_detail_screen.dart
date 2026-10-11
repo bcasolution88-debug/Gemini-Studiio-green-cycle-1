@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/location_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/order_map.dart';
 
 /// 回收员：任务详情（接单 / 出发 / 称重完成）
 class RecyclerTaskDetailScreen extends StatefulWidget {
@@ -23,11 +28,50 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
   bool _loading = true;
   bool _acting = false;
   String? _error;
+  Timer? _liveTimer;
+  String? _trackMode; // gps / simulated / null
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _liveTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startLive() {
+    _liveTimer ??= Timer.periodic(const Duration(seconds: 5), (_) async {
+      try {
+        final o = await _api.getOrder(widget.orderId);
+        if (mounted) setState(() => _order = o);
+      } catch (_) {}
+    });
+  }
+
+  Future<void> _toggleTracking() async {
+    final svc = LocationService.instance;
+    if (svc.isTracking) {
+      svc.stopTracking();
+      _liveTimer?.cancel();
+      _liveTimer = null;
+      setState(() => _trackMode = null);
+      showToast(context, '已关闭位置共享');
+      return;
+    }
+    final o = _order!;
+    final target = o.hasLocation ? LatLng(o.lat!, o.lng!) : null;
+    final start = o.recyclerLocation != null
+        ? LatLng(o.recyclerLocation!.lat, o.recyclerLocation!.lng)
+        : (target == null ? null : LatLng(target.latitude - 0.012, target.longitude - 0.015));
+    final mode = await svc.startTracking(_me, fallbackStart: start, target: target);
+    if (!mounted) return;
+    setState(() => _trackMode = mode);
+    _startLive();
+    showToast(context, mode == 'gps' ? '已开启 GPS 位置共享' : '当前环境无 GPS，已开启模拟行进（演示）');
   }
 
   Future<void> _load() async {
@@ -42,6 +86,10 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
       ]);
       _order = r[0] as RecycleOrder;
       _cats = r[1] as List<RecycleCategory>;
+      if (_order!.status == 'in_progress' && LocationService.instance.isTracking) {
+        _trackMode ??= 'gps';
+        _startLive();
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -84,6 +132,42 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
             })
         .toList();
     await _run(() => _api.recyclerComplete(o.id, _me, items), '回收完成，已为用户结算');
+    LocationService.instance.stopTracking();
+    _liveTimer?.cancel();
+    _liveTimer = null;
+    if (mounted) setState(() => _trackMode = null);
+  }
+
+  Future<void> _markPaid() async {
+    final method = await showModalBottomSheet<String>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('向用户支付回收款 ¥${_order!.amount?.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
+            for (final m in [
+              ('wechat', '微信支付', Icons.chat_rounded, AppColors.green),
+              ('alipay', '支付宝', Icons.account_balance_wallet_rounded, AppColors.blue),
+              ('cash', '现金', Icons.payments_rounded, AppColors.amber),
+            ])
+              ListTile(
+                leading: IconBadge(icon: m.$3, color: m.$4, size: 40, iconSize: 20),
+                title: Text(m.$2, style: const TextStyle(fontWeight: FontWeight.w700)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.pop(c, m.$1),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (method == null) return;
+    await _run(() => _api.recyclerMarkPaid(_order!.id, _me, method), '已标记结算，用户将收到通知');
   }
 
   @override
@@ -133,6 +217,62 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (o.hasLocation && o.status != 'cancelled') ...[
+                SoftCard(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const Icon(Icons.map_rounded, size: 18, color: AppColors.forest),
+                        const SizedBox(width: 6),
+                        const Text('导航与位置', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        const Spacer(),
+                        if (_trackMode != null)
+                          StatusChip(text: _trackMode == 'gps' ? 'GPS 共享中' : '模拟行进中', color: AppColors.green),
+                      ]),
+                      const SizedBox(height: 10),
+                      OrderMap(
+                        destination: LatLng(o.lat!, o.lng!),
+                        recycler: o.recyclerLocation == null ? null : LatLng(o.recyclerLocation!.lat, o.recyclerLocation!.lng),
+                        recyclerAvatar: o.recyclerAvatar,
+                        height: 190,
+                      ),
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => LocationService.navigateTo(o.lat!, o.lng!, label: o.contactName),
+                            icon: const Icon(Icons.navigation_rounded, size: 18),
+                            label: const Text('地图导航'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.forest,
+                              side: const BorderSide(color: AppColors.forest),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                            ),
+                          ),
+                        ),
+                        if (o.status == 'accepted' || o.status == 'in_progress') ...[
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _toggleTracking,
+                              icon: Icon(_trackMode == null ? Icons.my_location_rounded : Icons.location_off_rounded, size: 18),
+                              label: Text(_trackMode == null ? '共享位置' : '停止共享'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _trackMode == null ? AppColors.forest : AppColors.coral,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ]),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               SoftCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,9 +292,15 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
                             ],
                           ),
                         ),
-                        const IconBadge(icon: Icons.phone_rounded, color: AppColors.forest, size: 40, iconSize: 20),
+                        GestureDetector(
+                          onTap: () => LocationService.dial(o.contactPhone),
+                          child: const IconBadge(icon: Icons.phone_rounded, color: AppColors.forest, size: 40, iconSize: 20),
+                        ),
                         const SizedBox(width: 8),
-                        const IconBadge(icon: Icons.navigation_rounded, color: AppColors.orange, size: 40, iconSize: 20),
+                        GestureDetector(
+                          onTap: o.hasLocation ? () => LocationService.navigateTo(o.lat!, o.lng!, label: o.contactName) : null,
+                          child: const IconBadge(icon: Icons.navigation_rounded, color: AppColors.orange, size: 40, iconSize: 20),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -227,6 +373,7 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
                       _kv('应付金额', '¥${o.amount?.toStringAsFixed(2)}', AppColors.coral),
                       _kv('用户获得积分', '+${o.pointsEarned}', AppColors.amber),
                       _kv('减碳量', '${o.carbonSaved.toStringAsFixed(2)} kg', AppColors.forest),
+                      _kv('回收款结算', o.paid ? '已通过${o.payMethodText}支付' : '待支付', o.paid ? AppColors.forest : AppColors.coral),
                     ],
                   ],
                 ),
@@ -246,7 +393,39 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
           ),
         ),
         if (o.status != 'completed' && o.status != 'cancelled') _actions(o),
+        if (o.status == 'completed' && !o.paid) _payBar(o),
       ],
+    );
+  }
+
+  Widget _payBar(RecycleOrder o) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+        boxShadow: AppShadows.soft,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('应付用户回收款', style: TextStyle(fontSize: 11, color: AppColors.textGrey)),
+              Text('¥${o.amount?.toStringAsFixed(2) ?? '-'}',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.coral)),
+            ]),
+          ),
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: _acting ? null : _markPaid,
+              icon: const Icon(Icons.price_check_rounded),
+              label: const Text('确认已付款'),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 

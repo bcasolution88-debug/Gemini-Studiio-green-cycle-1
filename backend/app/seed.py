@@ -109,16 +109,17 @@ def seed_if_empty():
                 (uid, phone, "123456", nick, avatar, "user", "active", lvl, pts, tpts, w, c, _now(-90)),
             )
             conn.execute(
-                "INSERT INTO addresses VALUES (?,?,?,?,?,?,?)",
-                (f"addr_{uid}", uid, nick, phone, "北京市 朝阳区", f"绿地中央广场 {uid[-1]}号楼 {uid[-1]}0{uid[-1]}", 1),
+                "INSERT INTO addresses VALUES (?,?,?,?,?,?,?,?,?)",
+                (f"addr_{uid}", uid, nick, phone, "北京市 朝阳区", f"绿地中央广场 {uid[-1]}号楼 {uid[-1]}0{uid[-1]}", 1,
+                 39.9219 + int(uid[-1]) * 0.004, 116.4551 + int(uid[-1]) * 0.005),
             )
         conn.execute(
-            "INSERT INTO addresses VALUES (?,?,?,?,?,?,?)",
-            ("addr_001", DEMO_USER_ID, "小绿", "13912345678", "北京市 朝阳区", "阳光花园小区 3号楼 2单元 801", 1),
+            "INSERT INTO addresses VALUES (?,?,?,?,?,?,?,?,?)",
+            ("addr_001", DEMO_USER_ID, "小绿", "13912345678", "北京市 朝阳区", "阳光花园小区 3号楼 2单元 801", 1, 39.9289, 116.4683),
         )
         conn.execute(
-            "INSERT INTO addresses VALUES (?,?,?,?,?,?,?)",
-            ("addr_002", DEMO_USER_ID, "小绿", "13912345678", "北京市 海淀区", "中关村科技园 创新大厦 12层", 0),
+            "INSERT INTO addresses VALUES (?,?,?,?,?,?,?,?,?)",
+            ("addr_002", DEMO_USER_ID, "小绿", "13912345678", "北京市 海淀区", "中关村科技园 创新大厦 12层", 0, 39.9838, 116.3142),
         )
 
         # 历史订单
@@ -145,17 +146,23 @@ def seed_if_empty():
             rec = RECYCLERS[recycler_idx] if recycler_idx is not None else (None, None, None, None)
             created = _now(day_off, -2)
             conn.execute(
-                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (oid, f"GC{datetime.now().strftime('%Y%m')}{1000 + idx:04d}", DEMO_USER_ID, status,
                  "北京市 朝阳区 阳光花园小区 3号楼 2单元 801", "小绿", "13912345678",
                  _now(day_off).replace(_now(day_off)[11:], "14:00-16:00"), "请提前电话联系",
                  est, actual, round(amount, 2) if actual else None, points, round(carbon, 2),
-                 rec[0], rec[1], rec[2], rec[3], created, created),
+                 rec[0], rec[1], rec[2], rec[3], 39.9289, 116.4683,
+                 1 if status == "completed" else 0, "wechat" if status == "completed" else None, created, created),
             )
             for cid, cname, ew, aw in items:
                 conn.execute(
                     "INSERT INTO order_items (order_id, category_id, category_name, estimated_weight, actual_weight) VALUES (?,?,?,?,?)",
                     (oid, cid, cname, ew, aw),
+                )
+            if status == "completed" and rec[0]:
+                conn.execute(
+                    "INSERT INTO wallet_records VALUES (?,?,?,?,?,?,?)",
+                    (f"wr_{oid}", rec[0], "income", round(8 + amount * 0.15, 2), f"订单服务费 {oid}", oid, created),
                 )
             if status == "completed" and points > 0:
                 conn.execute(
@@ -195,18 +202,57 @@ def seed_if_empty():
             rec = RECYCLERS[recycler_idx] if recycler_idx is not None else (None, None, None, None)
             created = _now(day_off, -3)
             conn.execute(
-                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (oid, f"GC{datetime.now().strftime('%Y%m')}{2000 + idx:04d}", uid, status,
                  f"北京市 朝阳区 绿地中央广场 {uid[-1]}号楼 {uid[-1]}0{uid[-1]}", u[2], u[1],
                  f"{_now(day_off)[:10]} {slot}", "",
                  est, actual, round(amount, 2) if actual else None, points, round(carbon, 2),
-                 rec[0], rec[1], rec[2], rec[3], created, created),
+                 rec[0], rec[1], rec[2], rec[3],
+                 39.9219 + int(uid[-1]) * 0.004, 116.4551 + int(uid[-1]) * 0.005,
+                 1 if status == "completed" else 0, "cash" if status == "completed" else None, created, created),
             )
             for cid, cname, ew, aw in items:
                 conn.execute(
                     "INSERT INTO order_items (order_id, category_id, category_name, estimated_weight, actual_weight) VALUES (?,?,?,?,?)",
                     (oid, cid, cname, ew, aw),
                 )
+            if status == "completed" and rec[0]:
+                conn.execute(
+                    "INSERT INTO wallet_records VALUES (?,?,?,?,?,?,?)",
+                    (f"wr_{oid}", rec[0], "income", round(8 + amount * 0.15, 2), f"订单服务费 {oid}", oid, created),
+                )
+
+        # 回收员初始位置 / 历史提现 / 示例通知
+        for i, (rid, name, _, _) in enumerate(RECYCLERS):
+            conn.execute(
+                "INSERT INTO recycler_locations VALUES (?,?,?,?,?,?)",
+                (rid, 39.9150 + i * 0.006, 116.4400 + i * 0.008, 90.0, 0.0, _now()),
+            )
+        conn.execute(
+            "INSERT INTO withdrawals VALUES (?,?,?,?,?,?,?,?,?)",
+            ("wd_001", "r_001", "王师傅", 50.0, "微信 138****1111", "approved", "", _now(-20), _now(-19)),
+        )
+        conn.execute(
+            "INSERT INTO wallet_records VALUES (?,?,?,?,?,?,?)",
+            ("wr_wd_001", "r_001", "withdraw", -50.0, "提现到 微信", "wd_001", _now(-20)),
+        )
+        conn.execute(
+            "INSERT INTO withdrawals VALUES (?,?,?,?,?,?,?,?,?)",
+            ("wd_002", "r_002", "李师傅", 30.0, "支付宝 138****2222", "pending", "", _now(0, -3), None),
+        )
+        notices = [
+            (DEMO_USER_ID, "order", "回收员正在赶来", "王师傅 已出发，预计 30 分钟内到达，请保持电话畅通", "o_006", 0, _now(0, -1)),
+            (DEMO_USER_ID, "points", "积分到账", "回收订单 电子产品 已完成，+75 积分已到账", "o_005", 1, _now(-3)),
+            (DEMO_USER_ID, "system", "欢迎加入绿循环", "每一次回收都在让地球更美好，快去预约第一单吧！", None, 1, _now(-120)),
+            ("r_001", "order", "新的待接订单", "朝阳区 有 5 笔待接订单，去接单大厅看看", None, 0, _now(0, -2)),
+            ("r_002", "wallet", "提现申请已提交", "¥30.00 提现申请审核中", "wd_002", 0, _now(0, -3)),
+            (ADMIN_ID, "wallet", "新的提现申请", "李师傅 申请提现 ¥30.00，请及时审核", "wd_002", 0, _now(0, -3)),
+        ]
+        for i, (uid, t, title, body, rel, read, ts) in enumerate(notices):
+            conn.execute(
+                "INSERT INTO notifications VALUES (?,?,?,?,?,?,?,?)",
+                (f"nt_seed_{i}", uid, t, title, body, rel, read, ts),
+            )
 
         # 兑换记录
         conn.execute(

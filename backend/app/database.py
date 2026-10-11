@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS addresses (
     region TEXT NOT NULL,
     detail TEXT NOT NULL,
     is_default INTEGER NOT NULL DEFAULT 0,
+    lat REAL,
+    lng REAL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -64,6 +66,10 @@ CREATE TABLE IF NOT EXISTS orders (
     recycler_name TEXT,
     recycler_phone TEXT,
     recycler_avatar TEXT,
+    lat REAL,
+    lng REAL,
+    paid INTEGER NOT NULL DEFAULT 0,
+    pay_method TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -127,6 +133,48 @@ CREATE TABLE IF NOT EXISTS articles (
     views INTEGER NOT NULL DEFAULT 0,
     likes INTEGER NOT NULL DEFAULT 0,
     published_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    related_id TEXT,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS recycler_locations (
+    recycler_id TEXT PRIMARY KEY,
+    lat REAL NOT NULL,
+    lng REAL NOT NULL,
+    heading REAL,
+    speed REAL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS wallet_records (
+    id TEXT PRIMARY KEY,
+    recycler_id TEXT NOT NULL,
+    type TEXT NOT NULL,              -- income / payout / withdraw
+    amount REAL NOT NULL,            -- 正为收入，负为支出
+    title TEXT NOT NULL,
+    related_id TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS withdrawals (
+    id TEXT PRIMARY KEY,
+    recycler_id TEXT NOT NULL,
+    recycler_name TEXT NOT NULL,
+    amount REAL NOT NULL,
+    account TEXT NOT NULL,
+    status TEXT NOT NULL,            -- pending / approved / rejected
+    remark TEXT,
+    created_at TEXT NOT NULL,
+    reviewed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS achievements (

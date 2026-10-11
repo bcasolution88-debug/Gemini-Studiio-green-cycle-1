@@ -4,7 +4,7 @@
 
 | 项目 | 技术栈 |
 |---|---|
-| 前端 | Flutter 3.35 / Dart 3.9 · Provider · http · shared_preferences · intl |
+| 前端 | Flutter 3.35 / Dart 3.9 · Provider · http · shared_preferences · intl · flutter_map · geolocator · url_launcher |
 | 后端 | Python 3 · FastAPI · SQLite（零外部依赖，开箱即用） |
 | 包名 | `com.greencycle.recycle` |
 
@@ -31,17 +31,25 @@
 - **我的**：个人资料修改、累计数据、环保成就徽章、减碳报告（月度趋势、品类分布、植树当量）、积分明细、地址管理、后端地址设置、退出登录
 - **账号**：手机号 + 密码登录 / 注册，本地持久化登录状态
 
+### 跨端能力
+- **消息通知**：订单状态变更（接单/出发/完成/取消/指派）、积分到账、回收款支付、提现审核结果自动生成通知；前端 15 秒轮询，铃铛角标 + 顶部横幅提醒，点击直达订单
+- **地图与定位**：OpenStreetMap 地图，回收员开启位置共享后（GPS，Web/无权限时自动退化为模拟行进），用户端订单详情实时显示回收员位置与距离；一键调起系统地图导航 / 拨号
+- **多语言**：简体中文 / English，「我的」页一键切换并持久化（`lib/l10n/app_localizations.dart`，新增文案只需在两张表各加一行）
+
 ### 回收员端
 - **接单大厅**：今日业绩概览、待接订单列表（品类/重量/时间/地址）、一键抢单
 - **我的任务**：进行中 / 已完成，任务详情含客户信息、回收物品、备注
 - **作业流程**：接单 → 出发上门 → 现场称重（按品类填写实际重量，实时计算应付金额与积分）→ 完成结算
 - **我的**：本月 / 累计业绩（单数、重量、金额、减碳）
+- **钱包与结算**：称重完成后「确认已付款」（现金/微信/支付宝）；每单服务费（基础 ¥8 + 订单金额 15%）自动入账；待结算订单 / 收益明细 / 提现记录；申请提现（≥ ¥10，金额冻结待审核）
 
 ### 管理后台
 - **数据概览**：今日实时、核心 KPI、订单状态分布、近 14 天趋势、品类占比、回收员排行、用户贡献榜
 - **订单管理**：状态筛选 + 关键词搜索，指派 / 改派回收员，取消订单
 - **用户管理**：按角色筛选、搜索、禁用 / 启用账号、变更角色
 - **运营管理**：品类回收价 / 积分 / 减碳系数调整、商品增删改、兑换发货流转、资讯发布 / 删除
+- **财务导出**：提现审核（打款 / 驳回退款）；订单 / 用户 / 兑换 / 提现 / 积分流水 / 品类价格 6 类数据一键导出 CSV（UTF-8 BOM，Excel 直接打开）
+- **回收员地图**：全部在线回收员实时分布、任务负载、待接订单与最近回收员距离
 
 ## 目录结构
 
@@ -62,8 +70,13 @@
 │       ├── news/        资讯 / 文章详情
 │       ├── profile/     我的 / 积分明细 / 减碳报告
 │       ├── recycler/    回收员端：接单大厅 / 我的任务 / 任务详情(称重) / 我的
-│       ├── admin/       管理后台：数据概览 / 订单 / 用户 / 运营
+│       ├── admin/       管理后台：数据概览 / 订单 / 用户 / 运营 / 财务导出 / 回收员地图
+│       ├── notifications/ 消息中心（三端共用）
 │       └── settings/    后端地址设置
+├── lib/l10n/            多语言（zh / en）
+├── lib/widgets/order_map.dart  地图组件
+├── lib/services/location_service.dart  定位上报 / 导航 / 拨号
+├── store_assets/        Google Play 上架素材（图标 / 大图 / 5 张截图 / 文案 LISTING.md）
 ├── backend/
 │   ├── app/main.py      # FastAPI 路由
 │   ├── app/database.py  # SQLite 表结构
@@ -115,7 +128,13 @@ flutter build web --release
 
 # Android APK（需在 android/key.properties 配置签名，否则回退到 debug 签名）
 flutter build apk --release --dart-define=API_BASE_URL=https://your-api.example.com
+
+# Google Play 上架用 AAB
+flutter build appbundle --release --dart-define=API_BASE_URL=https://your-api.example.com
+# 输出：build/app/outputs/bundle/release/app-release.aab
 ```
+
+上架素材与文案见 `store_assets/LISTING.md`。
 
 签名配置示例 `android/key.properties`（已加入 .gitignore）：
 
@@ -160,6 +179,16 @@ storeFile=../release-key.jks
 | POST / PUT / DELETE | /api/admin/products | 商品管理 |
 | GET / PUT | /api/admin/redemptions | 兑换发货 |
 | POST / DELETE | /api/admin/articles | 资讯管理 |
+| **通知 / 定位 / 钱包 / 导出** | | |
+| GET | /api/notifications · /unread-count | 消息列表 / 轮询未读 |
+| POST / DELETE | /api/notifications/read · /{id} | 标记已读 / 删除 |
+| POST / GET | /api/recycler/location | 上报 / 查询回收员位置 |
+| GET | /api/admin/locations | 全部回收员位置 |
+| POST | /api/recycler/orders/{id}/pay | 确认向用户支付回收款 |
+| GET | /api/recycler/wallet | 钱包概览 / 明细 / 待结算 |
+| POST | /api/recycler/withdraw | 申请提现 |
+| GET / POST | /api/admin/withdrawals · /{id}/review | 提现列表 / 审核 |
+| GET | /api/admin/export/{orders\|users\|redemptions\|withdrawals\|points\|categories} | CSV 导出 |
 
 所有回收员 / 管理接口均校验账号角色（`recycler_id` / `admin_id`）。
 

@@ -5,8 +5,11 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../main.dart' show openNotificationTarget;
 import '../../widgets/common_widgets.dart';
+import '../notifications/notifications_screen.dart';
 import 'recycler_task_detail_screen.dart';
+import 'recycler_wallet_screen.dart';
 
 /// 接单大厅
 class RecyclerHallScreen extends StatefulWidget {
@@ -111,19 +114,32 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            gradient: AppColors.sunGradient,
-                            borderRadius: BorderRadius.circular(20),
+                        NotificationBell(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => NotificationsScreen(onOpen: (n) => openNotificationTarget(context, n)),
+                            ),
+                          ).then((_) => _load()),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RecyclerWalletScreen()))
+                              .then((_) => _load()),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              gradient: AppColors.sunGradient,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(children: [
+                              const Icon(Icons.account_balance_wallet_rounded, size: 14, color: AppColors.deepGreen),
+                              const SizedBox(width: 4),
+                              Text('¥${_stats?.balance.toStringAsFixed(0) ?? '-'}',
+                                  style: const TextStyle(
+                                      fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.deepGreen)),
+                            ]),
                           ),
-                          child: const Row(children: [
-                            Icon(Icons.circle, size: 8, color: AppColors.deepGreen),
-                            SizedBox(width: 4),
-                            Text('接单中',
-                                style: TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.deepGreen)),
-                          ]),
                         ),
                       ],
                     ),

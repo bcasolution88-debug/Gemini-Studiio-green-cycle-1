@@ -5,8 +5,12 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../main.dart' show openNotificationTarget;
+import '../../providers/locale_provider.dart';
 import '../../widgets/common_widgets.dart';
+import '../notifications/notifications_screen.dart';
 import '../settings/server_settings_screen.dart';
+import 'recycler_wallet_screen.dart';
 
 /// 回收员：我的
 class RecyclerProfileScreen extends StatefulWidget {
@@ -115,6 +119,30 @@ class _RecyclerProfileScreenState extends State<RecyclerProfileScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
                   children: [
+                    ListTile(
+                      leading: const IconBadge(icon: Icons.account_balance_wallet_rounded, color: AppColors.amber, size: 42, iconSize: 20),
+                      title: const Text('我的钱包', style: TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text('余额 ¥${_stats?.balance.toStringAsFixed(2) ?? '-'} · 待结算 ${_stats?.unpaidOrders ?? 0} 单', style: const TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textGrey),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RecyclerWalletScreen())).then((_) => _load()),
+                    ),
+                    const Divider(height: 1, indent: 72, endIndent: 16),
+                    ListTile(
+                      leading: const IconBadge(icon: Icons.notifications_rounded, color: AppColors.pink, size: 42, iconSize: 20),
+                      title: const Text('消息中心', style: TextStyle(fontWeight: FontWeight.w700)),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textGrey),
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => NotificationsScreen(onOpen: (n) => openNotificationTarget(context, n)))),
+                    ),
+                    const Divider(height: 1, indent: 72, endIndent: 16),
+                    ListTile(
+                      leading: const IconBadge(icon: Icons.translate_rounded, color: AppColors.purple, size: 42, iconSize: 20),
+                      title: const Text('语言 / Language', style: TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text(context.watch<LocaleProvider>().isZh ? '简体中文' : 'English', style: const TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.swap_horiz_rounded, color: AppColors.textGrey),
+                      onTap: () => context.read<LocaleProvider>().toggle(),
+                    ),
+                    const Divider(height: 1, indent: 72, endIndent: 16),
                     ListTile(
                       leading: const IconBadge(icon: Icons.map_rounded, color: AppColors.teal, size: 42, iconSize: 20),
                       title: const Text('服务区域', style: TextStyle(fontWeight: FontWeight.w700)),
