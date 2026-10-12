@@ -1,0 +1,6 @@
+{
+  "name": "Green Cycle (绿循环)",
+  "description": "C2B2C二手旧物与废品回收平台，含分类体系、社区论坛图文视频、公益捐赠专区、循环需求申请、回收站点地图与管理员评估对接",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
