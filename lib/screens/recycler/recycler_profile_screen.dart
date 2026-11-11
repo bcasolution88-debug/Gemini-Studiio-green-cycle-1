@@ -61,7 +61,7 @@ class _RecyclerProfileScreenState extends State<RecyclerProfileScreen> {
               ),
               child: Row(
                 children: [
-                  Avatar(user.avatar, size: 72, border: AppColors.lime),
+                  Avatar(user.avatar, size: 72, border: AppColors.lime, name: user.nickname),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(

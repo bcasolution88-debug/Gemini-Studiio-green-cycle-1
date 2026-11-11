@@ -51,6 +51,18 @@
 - **财务导出**：提现审核（打款 / 驳回退款）；订单 / 用户 / 兑换 / 提现 / 积分流水 / 品类价格 6 类数据一键导出 CSV（UTF-8 BOM，Excel 直接打开）
 - **回收员地图**：全部在线回收员实时分布、任务负载、待接订单与最近回收员距离
 
+## 安全与鉴权（v1.1.0+）
+
+- **JWT 鉴权**：登录/注册返回 `token`，客户端对所有受保护接口携带 `Authorization: Bearer <token>`；公开接口仅 `/api/health`、`/api/auth/*`、`GET /api/categories|products|articles`、`/static/*`。
+- **身份一致性**：请求中的 `user_id / recycler_id / admin_id` 必须与 token 所属用户一致（管理员除外），否则 403；订单/地址接口另有所有权校验。
+- **密码**：PBKDF2-SHA256 哈希存储；历史明文密码在首次登录时自动升级。
+- **生产部署必须设置**：
+  ```bash
+  export GC_JWT_SECRET="$(openssl rand -hex 32)"   # 不设置将使用开发默认值（不安全）
+  export GC_TOKEN_TTL_DAYS=30                       # 可选，token 有效期
+  ```
+- **静态资源**：商品图 / 文章封面 / 头像存放于 `backend/static/`，数据库保存相对路径（`/static/...`），前端按当前后端地址自动拼接，不依赖外部图床。
+
 ## 目录结构
 
 > 仓库根目录下的 `app/`、`build.gradle.kts`、`settings.gradle.kts`、`gradle/`、`metadata.json`、`.env.example` 为 **Google AI Studio 生成的原生 Android（Kotlin / Compose）独立工程**（包名 `com.aistudio.greencycle.recycle`），与本 Flutter 项目相互独立、互不依赖。Flutter 工程使用 `android/` 目录，后端位于 `backend/`。

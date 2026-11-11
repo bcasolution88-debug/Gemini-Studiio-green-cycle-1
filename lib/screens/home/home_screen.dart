@@ -451,7 +451,7 @@ class _ActiveOrder extends StatelessWidget {
         child: Row(
           children: [
             order.recyclerAvatar != null
-                ? Avatar(order.recyclerAvatar!, size: 50, border: c)
+                ? Avatar(order.recyclerAvatar!, size: 50, border: c, name: order.recyclerName)
                 : IconBadge(icon: Icons.hourglass_top_rounded, color: c, size: 50),
             const SizedBox(width: 14),
             Expanded(

@@ -305,7 +305,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   margin: const EdgeInsets.only(bottom: 16),
                   child: Row(
                     children: [
-                      Avatar(o.recyclerAvatar ?? '', size: 52, border: AppColors.lime),
+                      Avatar(o.recyclerAvatar ?? '', size: 52, border: AppColors.lime, name: o.recyclerName),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(

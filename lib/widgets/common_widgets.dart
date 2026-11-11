@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
 /// 品类图标映射
@@ -219,6 +220,39 @@ class StatusChip extends StatelessWidget {
 }
 
 /// 网络图片（带占位）
+/// 将后端返回的图片路径解析为可加载 URL：
+/// 相对路径（/static/...）自动拼接当前后端 baseUrl；绝对 http(s) 原样返回。
+String resolveImageUrl(String url) {
+  if (url.isEmpty) return url;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  final base = ApiService.instance.baseUrl;
+  return url.startsWith('/') ? '$base$url' : '$base/$url';
+}
+
+/// 昵称首字色块头像（无头像时的稳定、品牌化兜底）
+class InitialAvatar extends StatelessWidget {
+  final String name;
+  final double size;
+  const InitialAvatar(this.name, {super.key, this.size = 48});
+
+  static const _palette = [AppColors.forest, AppColors.blueText, AppColors.purpleText, AppColors.tealText, AppColors.pinkText, AppColors.orangeText];
+
+  @override
+  Widget build(BuildContext context) {
+    final n = name.trim();
+    final ch = n.isEmpty ? '绿' : n.characters.first;
+    final color = _palette[n.isEmpty ? 0 : n.codeUnits.fold<int>(0, (a, b) => a + b) % _palette.length];
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      color: color.withValues(alpha: 0.14),
+      child: Text(ch,
+          style: TextStyle(fontSize: size * 0.42, fontWeight: FontWeight.w900, color: color, height: 1)),
+    );
+  }
+}
+
 class NetImage extends StatelessWidget {
   final String url;
   final double? width;
@@ -230,10 +264,11 @@ class NetImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final img = url.isEmpty
+    final resolved = resolveImageUrl(url);
+    final img = resolved.isEmpty
         ? _placeholder()
         : Image.network(
-            url,
+            resolved,
             width: width,
             height: height,
             fit: fit,
@@ -256,7 +291,9 @@ class Avatar extends StatelessWidget {
   final String url;
   final double size;
   final Color? border;
-  const Avatar(this.url, {super.key, this.size = 48, this.border});
+  /// 用于无头像时显示首字；不传则显示通用人形图标
+  final String? name;
+  const Avatar(this.url, {super.key, this.size = 48, this.border, this.name});
 
   @override
   Widget build(BuildContext context) {
@@ -270,15 +307,18 @@ class Avatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: url.isEmpty
-          ? Icon(Icons.person_rounded, size: size * 0.6, color: AppColors.forest)
+          ? _fallback()
           : Image.network(
-              url,
+              resolveImageUrl(url),
               fit: BoxFit.cover,
-              errorBuilder: (c, e, s) =>
-                  Icon(Icons.person_rounded, size: size * 0.6, color: AppColors.forest),
+              errorBuilder: (c, e, s) => _fallback(),
             ),
     );
   }
+
+  Widget _fallback() => (name != null && name!.trim().isNotEmpty)
+      ? InitialAvatar(name!, size: size)
+      : Icon(Icons.person_rounded, size: size * 0.6, color: AppColors.forest);
 }
 
 /// 空状态

@@ -10,6 +10,8 @@ import io
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from .auth import auth_guard, create_token, current_user, hash_password, needs_rehash, verify_password
 from .database import db_cursor, init_db, rows_to_list
@@ -41,6 +43,11 @@ from .schemas import (
 from .seed import ADMIN_ID, DEMO_USER_ID, RECYCLERS, seed_if_empty
 
 app = FastAPI(title="绿循环 Green Cycle API", version="1.1.0", dependencies=[Depends(auth_guard)])
+
+# 静态资源（商品图 / 文章封面 / 头像）：前端以 baseUrl + 相对路径访问，不再依赖外部图床
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+_STATIC_DIR.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -150,7 +157,7 @@ def register(req: RegisterRequest):
         conn.execute(
             "INSERT INTO users (id,phone,password,nickname,avatar,role,status,level,points,total_points,total_weight,total_carbon,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (uid, req.phone, hash_password(req.password), req.nickname,
-             f"https://i.pravatar.cc/150?img={random.randint(1, 70)}", "user", "active", 1, 100, 100, 0, 0, _now()),
+             "", "user", "active", 1, 100, 100, 0, 0, _now()),  # 头像留空 → 前端显示昵称首字色块
         )
         conn.execute(
             "INSERT INTO point_records VALUES (?,?,?,?,?,?,?)",

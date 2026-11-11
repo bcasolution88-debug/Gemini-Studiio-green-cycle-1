@@ -126,7 +126,7 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
                     padding: const EdgeInsets.all(12),
                     onTap: () => _showRecycler(r),
                     child: Row(children: [
-                      Opacity(opacity: r.online ? 1 : 0.55, child: Avatar(r.avatar, size: 40, border: r.online ? AppColors.lime : AppColors.textGrey)),
+                      Opacity(opacity: r.online ? 1 : 0.55, child: Avatar(r.avatar, size: 40, border: r.online ? AppColors.lime : AppColors.textGrey, name: r.nickname)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -201,7 +201,7 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(children: [
-            Avatar(r.avatar, size: 56, border: AppColors.lime),
+            Avatar(r.avatar, size: 56, border: AppColors.lime, name: r.nickname),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [

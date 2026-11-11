@@ -156,6 +156,7 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                       children: [
                         Avatar(
                           user?.avatar ?? '',
+                          name: user?.nickname,
                           size: 44,
                           border: AppColors.lime,
                         ),

@@ -270,7 +270,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w900))),
                   ),
                   const SizedBox(width: 6),
-                  Avatar(m['avatar']?.toString() ?? '', size: 24),
+                  Avatar(m['avatar']?.toString() ?? '', size: 24, name: m['nickname']?.toString()),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Column(

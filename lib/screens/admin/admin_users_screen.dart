@@ -189,7 +189,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                 padding: const EdgeInsets.all(14),
                                 child: Row(
                                   children: [
-                                    Opacity(opacity: u.isDisabled ? 0.4 : 1, child: Avatar(u.avatar, size: 48, border: rc)),
+                                    Opacity(opacity: u.isDisabled ? 0.4 : 1, child: Avatar(u.avatar, size: 48, border: rc, name: u.nickname)),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(

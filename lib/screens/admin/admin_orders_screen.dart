@@ -90,7 +90,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               child: Text('指派回收员', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             ),
             ...recyclers.map((r) => ListTile(
-                  leading: Avatar(r.avatar, size: 42),
+                  leading: Avatar(r.avatar, size: 42, name: r.nickname),
                   title: Text(r.nickname, style: const TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text(r.phone),
                   trailing: o.recyclerId == r.id ? const StatusChip(text: '当前', color: AppColors.forest) : null,
@@ -245,7 +245,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           const SizedBox(height: 10),
           Row(children: [
             if (o.recyclerName != null) ...[
-              Avatar(o.recyclerAvatar ?? '', size: 22),
+              Avatar(o.recyclerAvatar ?? '', size: 22, name: o.recyclerName),
               const SizedBox(width: 6),
               Text(o.recyclerName!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
             ] else
