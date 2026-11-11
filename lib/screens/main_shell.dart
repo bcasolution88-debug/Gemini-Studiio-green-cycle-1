@@ -53,7 +53,11 @@ class _RecycleFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: context.tr('一键回收'),
+      hint: context.tr('预约上门回收'),
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         width: 64,
@@ -71,7 +75,8 @@ class _RecycleFab extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(Icons.recycling_rounded, color: AppColors.deepGreen, size: 32),
+        child: const ExcludeSemantics(child: Icon(Icons.recycling_rounded, color: AppColors.deepGreen, size: 32)),
+      ),
       ),
     );
   }

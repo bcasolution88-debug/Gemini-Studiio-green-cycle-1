@@ -219,6 +219,11 @@ curl https://$API_DOMAIN/api/health
 
 > SQLite 适合单实例（`GC_WORKERS=1`）。日订单超过数万时建议迁移 PostgreSQL（`database.py` 仅需替换连接层）。
 
+## 性能与无障碍审计
+
+见 `docs/PERF_A11Y_AUDIT.md`（v1.3.2）：滚动 60 fps / 0 掉帧，内存无泄漏，空闲 30 s 仅 2 次轮询；可交互元素无标签 3 → 0，<44dp 触控目标 59 → 11；320 px 窄屏 0 溢出。
+**部署 Web 端时请排除 `build/web/ui_design/`（74 MB 设计图库，仅沙箱预览用）**，可用 `flutter build web --release && rm -rf build/web/ui_design`。
+
 ## 上架与真机回归
 
 - **Play 资料**：`store_assets/LISTING.md`（名称/说明/截图 7 张 + 平板 2 张/数据安全表单/内容分级/上架核对清单）

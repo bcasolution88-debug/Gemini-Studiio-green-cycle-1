@@ -634,13 +634,19 @@ class _OnlineBar extends StatelessWidget {
               ),
             )
           else
-            Switch.adaptive(
+            Semantics(
+              // 读屏：朗读开关用途与当前状态
+              label: context.tr('接单开关'),
+              value: online ? context.tr('接单中') : context.tr('已暂停接单'),
+              toggled: online,
+              child: Switch.adaptive(
               value: online,
               onChanged: onChanged,
               activeThumbColor: AppColors.deepGreen,
               activeTrackColor: AppColors.lime,
               inactiveThumbColor: Colors.white,
               inactiveTrackColor: AppColors.coral.withValues(alpha: 0.8),
+            ),
             ),
         ],
       ),

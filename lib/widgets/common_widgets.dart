@@ -183,13 +183,27 @@ class SectionHeader extends StatelessWidget {
           Text(context.tr(title), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           const Spacer(),
           if (action != null)
-            GestureDetector(
-              onTap: onAction,
-              child: Row(
-                children: [
-                  Text(context.tr(action!), style: const TextStyle(color: AppColors.textGrey, fontSize: 13)),
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.textGrey, size: 18),
-                ],
+            Semantics(
+              button: true,
+              label: '${context.tr(action!)} · ${context.tr(title)}',
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: onAction,
+                borderRadius: BorderRadius.circular(12),
+                child: ConstrainedBox(
+                  // 触控面积 ≥ 48dp（WCAG 2.5.8 / Material）
+                  constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(context.tr(action!), style: const TextStyle(color: AppColors.textGrey, fontSize: 13)),
+                        const Icon(Icons.chevron_right_rounded, color: AppColors.textGrey, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
         ],
@@ -270,6 +284,10 @@ class NetImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolved = resolveImageUrl(url);
+    // 按显示尺寸解码（上限 2x DPR），避免 600~1000px 原图全尺寸进入内存
+    final dpr = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 2.0);
+    final int? cacheW = width != null && width!.isFinite ? (width! * dpr).round() : null;
+    final int? cacheH = cacheW == null && height != null && height!.isFinite ? (height! * dpr).round() : null;
     final img = resolved.isEmpty
         ? _placeholder()
         : Image.network(
@@ -277,6 +295,9 @@ class NetImage extends StatelessWidget {
             width: width,
             height: height,
             fit: fit,
+            cacheWidth: cacheW,
+            cacheHeight: cacheH,
+            filterQuality: FilterQuality.medium,
             loadingBuilder: (c, child, p) => p == null ? child : _placeholder(),
             errorBuilder: (c, e, s) => _placeholder(),
           );
@@ -314,6 +335,7 @@ class Avatar extends StatelessWidget {
       child: url.isEmpty
           ? _fallback()
           : Image.network(
+              cacheWidth: (size * MediaQuery.devicePixelRatioOf(context).clamp(1.0, 2.0)).round(),
               resolveImageUrl(url),
               fit: BoxFit.cover,
               errorBuilder: (c, e, s) => _fallback(),

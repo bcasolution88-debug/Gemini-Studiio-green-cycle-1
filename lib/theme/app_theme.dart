@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// 应用版本（与 pubspec.yaml 保持一致；打包时同步更新）
-const String kAppVersion = '1.3.1';
+const String kAppVersion = '1.3.2';
 
 /// 绿循环 - 多彩插画风格主题
 class AppColors {
@@ -152,6 +152,12 @@ class AppTheme {
           ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
+      ),
+      // 无障碍：所有 Material 按钮/Chip/IconButton 触控面积 ≥ 48dp
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      visualDensity: VisualDensity.standard,
+      iconButtonTheme: const IconButtonThemeData(
+        style: ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(48, 48))),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
