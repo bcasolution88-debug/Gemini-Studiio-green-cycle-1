@@ -145,6 +145,19 @@ keyAlias=release
 storeFile=../release-key.jks
 ```
 
+## 测试
+
+```bash
+# 前端静态分析 + 单元测试
+flutter analyze && flutter test
+
+# 后端端到端业务闭环测试（需先启动后端，建议使用干净数据库）
+cd backend && rm -f green_cycle.db && uvicorn app.main:app --port 8000 &
+python3 backend/tests/test_e2e.py
+```
+
+`test_e2e.py` 覆盖：注册登录与角色 → 预约（通知触发）→ 抢单/出发/位置 → 称重结算（金额/积分/减碳/服务费精确校验）→ 确认付款 → 提现冻结/驳回退款/打款 → 商城兑换发货 → 管理后台指派/取消/权限/禁用/调价/概览/地图/6 类导出 → 通知已读删除 → 统计/签到/首页，共约 70 项断言。
+
 ## 后端 API 一览
 
 | 方法 | 路径 | 说明 |
