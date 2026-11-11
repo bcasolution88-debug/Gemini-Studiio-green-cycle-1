@@ -61,7 +61,7 @@ class _AddressScreenState extends State<AddressScreen> {
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('删除', style: TextStyle(color: AppColors.coral))),
+              child: const Text('删除', style: TextStyle(color: AppColors.moneyText))),
         ],
       ),
     );

@@ -97,7 +97,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('再想想')),
           TextButton(
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('确定取消', style: TextStyle(color: AppColors.coral))),
+              child: const Text('确定取消', style: TextStyle(color: AppColors.moneyText))),
         ],
       ),
     );
@@ -107,6 +107,92 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Future<void> _advance() async {
     await _act(() => _api.advanceOrder(widget.orderId), '订单状态已更新');
+  }
+
+  int _rateStars = 5;
+  final Set<String> _rateTags = {};
+  final _rateCtrl = TextEditingController();
+  static const _tagOptions = ['准时上门', '称重公正', '态度友好', '搬运细心', '沟通顺畅'];
+
+  Future<void> _submitRating() async {
+    final me = context.read<AppProvider>().userId;
+    await _act(
+      () => _api.rateOrder(widget.orderId, me, _rateStars, tags: _rateTags.toList(), comment: _rateCtrl.text),
+      '感谢评价，+5 积分',
+    );
+  }
+
+  Widget _ratingCard(RecycleOrder o) {
+    if (o.isRated) {
+      return SoftCard(
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('我的评价', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 8),
+          Row(children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 22, color: i < (o.rating ?? 0) ? AppColors.amber : AppColors.divider))),
+          if (o.ratingTags.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, runSpacing: 6, children: o.ratingTags.map((t) => StatusChip(text: t, color: AppColors.teal)).toList()),
+          ],
+          if ((o.ratingComment ?? '').isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(o.ratingComment!, style: const TextStyle(fontSize: 13, color: AppColors.textGrey)),
+          ],
+        ]),
+      );
+    }
+    return SoftCard(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Text('评价回收员', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const Spacer(),
+          const StatusChip(text: '评价 +5 积分', color: AppColors.amber),
+        ]),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (i) => GestureDetector(
+            onTap: () => setState(() => _rateStars = i + 1),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Icon(Icons.star_rounded, size: 38, color: i < _rateStars ? AppColors.amber : AppColors.divider),
+            ),
+          )),
+        ),
+        Center(child: Text(['很差', '较差', '一般', '满意', '非常满意'][_rateStars - 1],
+            style: const TextStyle(fontSize: 12, color: AppColors.textGrey, fontWeight: FontWeight.w600))),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8, runSpacing: 8,
+          children: _tagOptions.map((t) {
+            final on = _rateTags.contains(t);
+            return ChoiceChip(
+              label: Text(t, style: TextStyle(fontSize: 12, color: on ? Colors.white : AppColors.textDark)),
+              selected: on,
+              selectedColor: AppColors.forest,
+              onSelected: (_) => setState(() => on ? _rateTags.remove(t) : _rateTags.add(t)),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _rateCtrl,
+          maxLength: 100,
+          decoration: const InputDecoration(hintText: '还有什么想说的（选填）', counterText: '', isDense: true),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          height: 46,
+          child: ElevatedButton.icon(
+            onPressed: _acting ? null : _submitRating,
+            icon: const Icon(Icons.rate_review_rounded, size: 18),
+            label: const Text('提交评价'),
+          ),
+        ),
+      ]),
+    );
   }
 
   Future<void> _act(Future<RecycleOrder> Function() fn, String msg) async {
@@ -210,6 +296,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
               ],
 
+              // 评价回收员（订单完成后）
+              if (o.status == 'completed' && o.recyclerName != null) _ratingCard(o),
+
               // 回收员
               if (o.recyclerName != null)
                 SoftCard(
@@ -225,10 +314,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             Text(o.recyclerName!,
                                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                             const SizedBox(height: 2),
-                            const Row(children: [
-                              Icon(Icons.star_rounded, size: 14, color: AppColors.amber),
-                              Text(' 4.9 · 服务 1200+ 次',
-                                  style: TextStyle(fontSize: 12, color: AppColors.textGrey)),
+                            Row(children: [
+                              const Icon(Icons.star_rounded, size: 14, color: AppColors.amber),
+                              Text(o.isRated ? ' 您已评价 ${o.rating} 星' : ' 认证回收员 · 已实名',
+                                  style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
                             ]),
                           ],
                         ),
@@ -273,11 +362,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     if (o.status == 'completed') ...[
                       const Divider(height: 20),
                       _kv('实际总重', '${o.actualWeight?.toStringAsFixed(1) ?? '-'} kg'),
-                      _kv('回收金额', '¥${o.amount?.toStringAsFixed(2) ?? '-'}', color: AppColors.coral),
-                      _kv('获得积分', '+${o.pointsEarned}', color: AppColors.amber),
+                      _kv('回收金额', '¥${o.amount?.toStringAsFixed(2) ?? '-'}', color: AppColors.moneyText),
+                      _kv('获得积分', '+${o.pointsEarned}', color: AppColors.pointsText),
                       _kv('减碳量', '${o.carbonSaved.toStringAsFixed(2)} kg CO₂', color: AppColors.forest),
                       _kv('回收款', o.paid ? '已通过${o.payMethodText}支付' : '待回收员支付',
-                          color: o.paid ? AppColors.forest : AppColors.orange),
+                          color: o.paid ? AppColors.forest : AppColors.orangeText),
                     ],
                   ],
                 ),
@@ -334,7 +423,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 shape: BoxShape.circle,
               ),
               child: Icon(_steps[s].$3,
-                  size: 18, color: done ? statusColor(_order!.status) : Colors.white70),
+                  size: 18, color: done ? statusColor(_order!.status) : AppColors.onDarkSoft),
             ),
             const SizedBox(height: 6),
             Text(_steps[s].$2,

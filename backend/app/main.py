@@ -7,10 +7,11 @@ from datetime import datetime
 import csv
 import io
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from .auth import auth_guard, create_token, current_user, hash_password, needs_rehash, verify_password
 from .database import db_cursor, init_db, rows_to_list
 from .schemas import (
     AddressGeoIn,
@@ -26,6 +27,8 @@ from .schemas import (
     ReviewWithdrawRequest,
     WithdrawRequest,
     RecyclerActionRequest,
+    RecyclerOnlineRequest,
+    RateOrderRequest,
     RedeemRequest,
     RegisterRequest,
     SignInRequest,
@@ -37,7 +40,7 @@ from .schemas import (
 )
 from .seed import ADMIN_ID, DEMO_USER_ID, RECYCLERS, seed_if_empty
 
-app = FastAPI(title="绿循环 Green Cycle API", version="1.0.0")
+app = FastAPI(title="绿循环 Green Cycle API", version="1.1.0", dependencies=[Depends(auth_guard)])
 
 app.add_middleware(
     CORSMiddleware,
@@ -90,6 +93,9 @@ def _user_payload(row) -> dict:
     u.pop("password", None)
     u.setdefault("role", "user")
     u.setdefault("status", "active")
+    u["online"] = bool(u.get("online", 1))
+    u["rating"] = round(float(u.get("rating") or 0), 1)
+    u["rating_count"] = int(u.get("rating_count") or 0)
     lvl = u["level"]
     u["level_name"] = LEVEL_NAMES[min(lvl - 1, len(LEVEL_NAMES) - 1)]
     next_th = LEVEL_THRESHOLDS[lvl] if lvl < len(LEVEL_THRESHOLDS) else None
@@ -125,14 +131,14 @@ def health():
 @app.post("/api/auth/login")
 def login(req: LoginRequest):
     with db_cursor() as conn:
-        row = conn.execute(
-            "SELECT * FROM users WHERE phone = ? AND password = ?", (req.phone, req.password)
-        ).fetchone()
-        if not row:
+        row = conn.execute("SELECT * FROM users WHERE phone = ?", (req.phone,)).fetchone()
+        if not row or not verify_password(req.password, row["password"]):
             raise HTTPException(401, "手机号或密码错误")
         if row["status"] == "disabled":
             raise HTTPException(403, "账号已被禁用，请联系管理员")
-        return _ok({"token": f"tk_{row['id']}", "user": _user_payload(row)})
+        if needs_rehash(row["password"]):
+            conn.execute("UPDATE users SET password=? WHERE id=?", (hash_password(req.password), row["id"]))
+        return _ok({"token": create_token(row["id"], row["role"]), "user": _user_payload(row)})
 
 
 @app.post("/api/auth/register")
@@ -142,8 +148,8 @@ def register(req: RegisterRequest):
             raise HTTPException(400, "该手机号已注册")
         uid = f"u_{uuid.uuid4().hex[:10]}"
         conn.execute(
-            "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (uid, req.phone, req.password, req.nickname,
+            "INSERT INTO users (id,phone,password,nickname,avatar,role,status,level,points,total_points,total_weight,total_carbon,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (uid, req.phone, hash_password(req.password), req.nickname,
              f"https://i.pravatar.cc/150?img={random.randint(1, 70)}", "user", "active", 1, 100, 100, 0, 0, _now()),
         )
         conn.execute(
@@ -151,7 +157,7 @@ def register(req: RegisterRequest):
             (f"pr_{uuid.uuid4().hex[:8]}", uid, "earn", 100, "新用户注册奖励", None, _now()),
         )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
-        return _ok({"token": f"tk_{uid}", "user": _user_payload(row)})
+        return _ok({"token": create_token(uid, "user"), "user": _user_payload(row)})
 
 
 @app.get("/api/users/{user_id}")
@@ -284,13 +290,28 @@ def create_address(req: AddressGeoIn):
 
 
 @app.delete("/api/addresses/{address_id}")
-def delete_address(address_id: str):
+def delete_address(address_id: str, request: Request):
+    me = current_user(request)
     with db_cursor() as conn:
+        row = conn.execute("SELECT user_id FROM addresses WHERE id=?", (address_id,)).fetchone()
+        if row and row["user_id"] != me["id"] and me["role"] != "admin":
+            raise HTTPException(403, "无权删除他人地址")
         conn.execute("DELETE FROM addresses WHERE id=?", (address_id,))
         return _ok(True)
 
 
 # ---------------- 订单 ----------------
+def _assert_order_access(me: dict, order_row):
+    """订单可见性：下单用户 / 被指派回收员 / 管理员；待接单对所有回收员可见"""
+    if me["role"] == "admin":
+        return
+    if order_row["user_id"] == me["id"]:
+        return
+    if me["role"] == "recycler" and (order_row["recycler_id"] in (None, "", me["id"]) ):
+        return
+    raise HTTPException(403, "无权访问该订单")
+
+
 def _order_with_items(conn, order_row) -> dict:
     o = dict(order_row)
     o["items"] = rows_to_list(conn.execute(
@@ -318,11 +339,13 @@ def list_orders(user_id: str = Query(...), status: str = Query(None)):
 
 
 @app.get("/api/orders/{order_id}")
-def get_order(order_id: str):
+def get_order(order_id: str, request: Request):
+    me = current_user(request)
     with db_cursor() as conn:
         row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
         if not row:
             raise HTTPException(404, "订单不存在")
+        _assert_order_access(me, row)
         return _ok(_order_with_items(conn, row))
 
 
@@ -340,7 +363,7 @@ def create_order(req: CreateOrderRequest):
         est = sum(i.estimated_weight for i in req.items)
         now = _now()
         conn.execute(
-            "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO orders (id,order_no,user_id,status,address_text,contact_name,contact_phone,appointment_time,remark,estimated_weight,actual_weight,amount,points_earned,carbon_saved,recycler_id,recycler_name,recycler_phone,recycler_avatar,lat,lng,paid,pay_method,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (oid, order_no, req.user_id, "pending", f"{addr['region']} {addr['detail']}",
              addr["contact_name"], addr["phone"], req.appointment_time, req.remark or "",
              est, None, None, 0, 0, None, None, None, None, addr["lat"], addr["lng"], 0, None, now, now),
@@ -354,17 +377,20 @@ def create_order(req: CreateOrderRequest):
                 (oid, cat["id"], cat["name"], it.estimated_weight),
             )
         _notify(conn, req.user_id, "order", "预约成功", f"订单 {order_no} 已提交，正在为您匹配回收员", oid)
-        for r in conn.execute("SELECT id FROM users WHERE role='recycler' AND status='active'").fetchall():
+        for r in conn.execute("SELECT id FROM users WHERE role='recycler' AND status='active' AND online=1").fetchall():
             _notify(conn, r["id"], "order", "新的待接订单", f"{addr['region']} 新增一笔预约（预估 {est:.1f}kg），去接单大厅看看", oid)
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()), "预约成功")
 
 
 @app.post("/api/orders/{order_id}/cancel")
-def cancel_order(order_id: str):
+def cancel_order(order_id: str, request: Request):
+    me = current_user(request)
     with db_cursor() as conn:
         row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
         if not row:
             raise HTTPException(404, "订单不存在")
+        if row["user_id"] != me["id"] and me["role"] != "admin":
+            raise HTTPException(403, "只能取消自己的订单")
         if row["status"] not in ("pending", "accepted"):
             raise HTTPException(400, "当前状态无法取消")
         conn.execute("UPDATE orders SET status='cancelled', updated_at=? WHERE id=?", (_now(), order_id))
@@ -408,13 +434,16 @@ def _settle_order(conn, order_row, items, actuals: dict):
 
 
 @app.post("/api/orders/{order_id}/advance")
-def advance_order(order_id: str):
-    """模拟订单流转：pending -> accepted -> in_progress -> completed（演示用）"""
+def advance_order(order_id: str, request: Request):
+    """模拟订单流转：pending -> accepted -> in_progress -> completed（演示用，仅订单所属用户/管理员）"""
+    me = current_user(request)
     flow = {"pending": "accepted", "accepted": "in_progress", "in_progress": "completed"}
     with db_cursor() as conn:
         row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
         if not row:
             raise HTTPException(404, "订单不存在")
+        if row["user_id"] != me["id"] and me["role"] != "admin":
+            raise HTTPException(403, "无权操作该订单")
         cur = row["status"]
         if cur not in flow:
             raise HTTPException(400, "订单已结束")
@@ -434,6 +463,38 @@ def advance_order(order_id: str):
             conn.execute("UPDATE orders SET status=?, updated_at=? WHERE id=?", (nxt, _now(), order_id))
             _notify(conn, row["user_id"], "order", "回收员正在赶来", f"{row['recycler_name'] or '回收员'} 已出发，请保持电话畅通", order_id)
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()))
+
+
+@app.post("/api/orders/{order_id}/rate")
+def rate_order(order_id: str, req: RateOrderRequest):
+    """用户对已完成订单评价回收员（每单一次），并更新回收员平均评分"""
+    with db_cursor() as conn:
+        row = conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "订单不存在")
+        if row["user_id"] != req.user_id:
+            raise HTTPException(403, "只能评价自己的订单")
+        if row["status"] != "completed":
+            raise HTTPException(400, "订单完成后才能评价")
+        if row["rating"]:
+            raise HTTPException(400, "该订单已评价")
+        tags = ",".join(t.strip() for t in (req.tags or []) if t.strip())[:200]
+        conn.execute(
+            "UPDATE orders SET rating=?, rating_tags=?, rating_comment=?, rated_at=? WHERE id=?",
+            (req.rating, tags or None, (req.comment or "").strip() or None, _now(), order_id),
+        )
+        rid = row["recycler_id"]
+        if rid:
+            rec = conn.execute("SELECT rating, rating_count FROM users WHERE id=?", (rid,)).fetchone()
+            if rec:
+                cnt = int(rec["rating_count"] or 0)
+                avg = float(rec["rating"] or 0)
+                new_avg = round((avg * cnt + req.rating) / (cnt + 1), 2)
+                conn.execute("UPDATE users SET rating=?, rating_count=? WHERE id=?", (new_avg, cnt + 1, rid))
+            _notify(conn, rid, "order", "收到用户评价", f"{row['contact_name']} 给了您 {req.rating} 星" + (f"：{tags.replace(',', ' / ')}" if tags else ""), order_id)
+        # 评价奖励积分
+        _add_points(conn, req.user_id, 5, "评价回收员奖励", order_id)
+        return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "感谢评价，+5 积分")
 
 
 # ---------------- 积分 ----------------
@@ -609,6 +670,8 @@ def recycler_accept(order_id: str, req: RecyclerActionRequest):
             raise HTTPException(404, "订单不存在")
         if row["status"] != "pending":
             raise HTTPException(400, "该订单已被接单或已取消")
+        if rec["role"] == "recycler" and not rec["online"]:
+            raise HTTPException(400, "您当前为「暂停接单」状态，请先在接单大厅开启接单")
         conn.execute(
             "UPDATE orders SET status='accepted', recycler_id=?, recycler_name=?, recycler_phone=?, recycler_avatar=?, updated_at=? WHERE id=?",
             (rec["id"], rec["nickname"], rec["phone"], rec["avatar"], _now(), order_id),
@@ -648,6 +711,16 @@ def recycler_complete(order_id: str, req: CompleteOrderRequest):
         return _ok(_order_with_items(conn, conn.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()), "回收完成")
 
 
+@app.post("/api/recycler/online")
+def recycler_set_online(req: RecyclerOnlineRequest):
+    """回收员接单开关：online=False 时不再收到新单推送、不可抢单（已接订单不受影响）"""
+    with db_cursor() as conn:
+        rec = _require_role(conn, req.recycler_id, "recycler", "admin")
+        conn.execute("UPDATE users SET online=? WHERE id=?", (1 if req.online else 0, rec["id"]))
+        row = conn.execute("SELECT * FROM users WHERE id=?", (rec["id"],)).fetchone()
+        return _ok(_user_payload(row), "已开启接单" if req.online else "已暂停接单")
+
+
 @app.get("/api/recycler/stats")
 def recycler_stats(recycler_id: str = Query(...)):
     with db_cursor() as conn:
@@ -675,7 +748,9 @@ def recycler_stats(recycler_id: str = Query(...)):
             "total": agg("", ()),
             "active_tasks": active,
             "hall_pending": pending,
-            "rating": 4.9,
+            "rating": round(float(rec["rating"] or 0), 1),
+            "rating_count": int(rec["rating_count"] or 0),
+            "online": bool(rec["online"]),
         })
 
 
@@ -1024,9 +1099,9 @@ def admin_locations(admin_id: str = Query(...)):
     with db_cursor() as conn:
         _require_role(conn, admin_id, "admin")
         rows = conn.execute(
-            "SELECT l.*, u.nickname, u.avatar, u.phone, "
+            "SELECT l.*, u.nickname, u.avatar, u.phone, u.online, u.rating, "
             "(SELECT COUNT(*) FROM orders o WHERE o.recycler_id=l.recycler_id AND o.status IN ('accepted','in_progress')) AS active_tasks "
-            "FROM recycler_locations l JOIN users u ON u.id=l.recycler_id WHERE u.status='active'"
+            "FROM recycler_locations l JOIN users u ON u.id=l.recycler_id WHERE u.status='active' ORDER BY u.online DESC, active_tasks DESC"
         ).fetchall()
         return _ok(rows_to_list(rows))
 

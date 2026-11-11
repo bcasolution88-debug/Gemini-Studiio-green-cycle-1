@@ -122,7 +122,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('返回')),
           TextButton(
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('确定取消', style: TextStyle(color: AppColors.coral))),
+              child: const Text('确定取消', style: TextStyle(color: AppColors.moneyText))),
         ],
       ),
     );
@@ -271,7 +271,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(i, size: 14, color: c),
             const SizedBox(width: 4),
-            Text(t, style: TextStyle(fontSize: 12, color: c, fontWeight: FontWeight.w700)),
+            Text(t, style: TextStyle(fontSize: 12, color: AppColors.readable(c), fontWeight: FontWeight.w700)),
           ]),
         ),
       );

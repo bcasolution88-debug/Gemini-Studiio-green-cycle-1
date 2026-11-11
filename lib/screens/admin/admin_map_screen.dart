@@ -114,23 +114,36 @@ class _AdminMapScreenState extends State<AdminMapScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
             children: [
-              const Text('在线回收员', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+              Row(children: [
+                const Text('回收员状态', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                const Spacer(),
+                Text('接单中 ${_recyclers.where((r) => r.online).length} · 暂停 ${_recyclers.where((r) => !r.online).length}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textGrey, fontWeight: FontWeight.w600)),
+              ]),
               const SizedBox(height: 8),
               ..._recyclers.map((r) => SoftCard(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     onTap: () => _showRecycler(r),
                     child: Row(children: [
-                      Avatar(r.avatar, size: 40, border: AppColors.lime),
+                      Opacity(opacity: r.online ? 1 : 0.55, child: Avatar(r.avatar, size: 40, border: r.online ? AppColors.lime : AppColors.textGrey)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r.nickname, style: const TextStyle(fontWeight: FontWeight.w800)),
+                          Row(children: [
+                            Text(r.nickname, style: const TextStyle(fontWeight: FontWeight.w800)),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.star_rounded, size: 14, color: AppColors.amber),
+                            Text(r.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.pointsText)),
+                          ]),
                           Text('${r.lat.toStringAsFixed(4)}, ${r.lng.toStringAsFixed(4)} · 更新 ${r.updatedAt.length >= 16 ? r.updatedAt.substring(11, 16) : ''}',
                               style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
                         ]),
                       ),
-                      StatusChip(text: r.activeTasks > 0 ? '任务中 ${r.activeTasks}' : '空闲', color: r.activeTasks > 0 ? AppColors.blue : AppColors.forest),
+                      StatusChip(
+                        text: !r.online ? '暂停接单' : (r.activeTasks > 0 ? '任务中 ${r.activeTasks}' : '空闲'),
+                        color: !r.online ? AppColors.textGrey : (r.activeTasks > 0 ? AppColors.blue : AppColors.forest),
+                      ),
                     ]),
                   )),
               const SizedBox(height: 12),

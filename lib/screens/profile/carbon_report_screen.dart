@@ -91,7 +91,7 @@ class _CarbonReportScreenState extends State<CarbonReportScreen> {
                       style: const TextStyle(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900, height: 1)),
                   const Padding(
                     padding: EdgeInsets.only(bottom: 6, left: 6),
-                    child: Text('kg CO₂', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    child: Text('kg CO₂', style: TextStyle(color: AppColors.onDarkSoft, fontSize: 14)),
                   ),
                 ],
               ),
@@ -179,7 +179,7 @@ class _CarbonReportScreenState extends State<CarbonReportScreen> {
                           width: 62,
                           child: Text('${w.toStringAsFixed(1)} kg',
                               textAlign: TextAlign.end,
-                              style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w800)),
+                              style: TextStyle(fontSize: 12, color: AppColors.readable(color), fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ),
@@ -200,7 +200,7 @@ class _CarbonReportScreenState extends State<CarbonReportScreen> {
             children: [
               Icon(i, color: c, size: 22),
               const SizedBox(height: 8),
-              Text(v, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: c)),
+              Text(v, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.readable(c))),
               const SizedBox(height: 2),
               Text(l, style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
             ],

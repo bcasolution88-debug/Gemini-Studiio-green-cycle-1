@@ -212,7 +212,7 @@ class StatusChip extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+        style: TextStyle(color: AppColors.readable(color), fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );
   }

@@ -191,7 +191,7 @@ class _RecyclerWalletScreenState extends State<RecyclerWalletScreen> with Single
   Widget _mini(String l, String v) => Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(v, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
-          Text(l, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          Text(l, style: const TextStyle(color: AppColors.onDarkSoft, fontSize: 10)),
         ]),
       );
 
@@ -220,7 +220,7 @@ class _RecyclerWalletScreenState extends State<RecyclerWalletScreen> with Single
                       style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
                 ]),
               ),
-              Text('¥${o.amount?.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.coral, fontSize: 16)),
+              Text('¥${o.amount?.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.moneyText, fontSize: 16)),
               const Icon(Icons.chevron_right_rounded, color: AppColors.textGrey),
             ]),
           );
@@ -280,7 +280,7 @@ class _RecyclerWalletScreenState extends State<RecyclerWalletScreen> with Single
             Text('收款账户：${d.account}', style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
             Text('申请时间：${d.createdAt}', style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
             if (d.reviewedAt != null) Text('处理时间：${d.reviewedAt}', style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
-            if (d.remark.isNotEmpty) Text('备注：${d.remark}', style: const TextStyle(fontSize: 12, color: AppColors.coral)),
+            if (d.remark.isNotEmpty) Text('备注：${d.remark}', style: const TextStyle(fontSize: 12, color: AppColors.moneyText)),
           ]),
         );
       },

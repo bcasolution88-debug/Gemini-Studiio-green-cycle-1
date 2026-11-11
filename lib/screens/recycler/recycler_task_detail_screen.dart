@@ -361,7 +361,7 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
                               it.actualWeight != null
                                   ? '实际 ${it.actualWeight!.toStringAsFixed(1)} kg'
                                   : '预估 ${it.estimatedWeight.toStringAsFixed(1)} kg',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: 13),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.readable(color), fontSize: 13),
                             ),
                           ],
                         ),
@@ -413,7 +413,7 @@ class _RecyclerTaskDetailScreenState extends State<RecyclerTaskDetailScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('应付用户回收款', style: TextStyle(fontSize: 11, color: AppColors.textGrey)),
               Text('¥${o.amount?.toStringAsFixed(2) ?? '-'}',
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.coral)),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.moneyText)),
             ]),
           ),
           SizedBox(
@@ -601,7 +601,7 @@ class _WeighSheetState extends State<_WeighSheet> {
                     children: [
                       const Text('应付用户', style: TextStyle(fontSize: 11, color: AppColors.textGrey)),
                       Text('¥${_amount.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.coral)),
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.moneyText)),
                     ],
                   ),
                 ),
@@ -609,7 +609,7 @@ class _WeighSheetState extends State<_WeighSheet> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     const Text('用户获得积分', style: TextStyle(fontSize: 11, color: AppColors.textGrey)),
-                    Text('+$_points', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.amber)),
+                    Text('+$_points', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.pointsText)),
                   ],
                 ),
               ],

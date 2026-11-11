@@ -22,9 +22,10 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> init() async {
     await _api.init();
+    _api.onUnauthorized = _onSessionExpired;
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getString(_kUserId);
-    if (uid != null && uid.isNotEmpty) {
+    if (uid != null && uid.isNotEmpty && _api.hasToken) {
       try {
         user = await _api.getUser(uid);
       } catch (e) {
@@ -58,10 +59,21 @@ class AppProvider extends ChangeNotifier {
   Future<void> logout() async {
     user = null;
     home = null;
+    await _api.logout();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kUserId);
     notifyListeners();
   }
+
+  /// 登录过期（后端返回 401）：清理本地会话并回到登录页
+  bool sessionExpired = false;
+  void _onSessionExpired() {
+    if (user == null) return;
+    sessionExpired = true;
+    logout();
+  }
+
+  void clearSessionExpiredFlag() => sessionExpired = false;
 
   Future<void> loadHome() async {
     if (user == null || user!.role != 'user') return;

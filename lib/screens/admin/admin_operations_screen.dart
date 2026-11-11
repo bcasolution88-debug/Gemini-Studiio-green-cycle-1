@@ -167,7 +167,7 @@ class _CategoriesTabState extends State<_CategoriesTab> with AutomaticKeepAliveC
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('¥${cat.pricePerKg.toStringAsFixed(2)}/kg', style: TextStyle(fontWeight: FontWeight.w900, color: color, fontSize: 14)),
+                  Text('¥${cat.pricePerKg.toStringAsFixed(2)}/kg', style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.readable(color), fontSize: 14)),
                   Text('${cat.pointsPerKg}分 · ${cat.carbonPerKg.toStringAsFixed(1)}kgCO₂', style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
                 ],
               ),
@@ -305,7 +305,7 @@ class _ProductsTabState extends State<_ProductsTab> with AutomaticKeepAliveClien
         content: Text('确定删除「${p.name}」？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('删除', style: TextStyle(color: AppColors.coral))),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('删除', style: TextStyle(color: AppColors.moneyText))),
         ],
       ),
     );
@@ -358,7 +358,7 @@ class _ProductsTabState extends State<_ProductsTab> with AutomaticKeepAliveClien
                                 const SizedBox(height: 3),
                                 Text('${p.category} · 库存 ${p.stock} · 已兑 ${p.sold}', style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
                                 const SizedBox(height: 3),
-                                Text('${p.points} 积分', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.coral)),
+                                Text('${p.points} 积分', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.moneyText)),
                               ],
                             ),
                           ),
@@ -609,7 +609,7 @@ class _ArticlesTabState extends State<_ArticlesTab> with AutomaticKeepAliveClien
         content: Text('确定删除「${a.title}」？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('删除', style: TextStyle(color: AppColors.coral))),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('删除', style: TextStyle(color: AppColors.moneyText))),
         ],
       ),
     );

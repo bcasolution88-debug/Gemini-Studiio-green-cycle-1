@@ -346,7 +346,7 @@ class _CategoryStrip extends StatelessWidget {
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                         const SizedBox(height: 2),
                         Text('¥${cat.pricePerKg.toStringAsFixed(1)}/kg',
-                            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700)),
+                            style: TextStyle(fontSize: 11, color: AppColors.readable(color), fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -536,7 +536,7 @@ class _HotProducts extends StatelessWidget {
                                 style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w900,
-                                    color: AppColors.coral)),
+                                    color: AppColors.moneyText)),
                             const Spacer(),
                             Text('已兑${p.sold}',
                                 style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),

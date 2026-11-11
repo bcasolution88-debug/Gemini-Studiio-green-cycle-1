@@ -138,7 +138,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             const SizedBox(width: 6),
                             Text('${p.points}',
                                 style: const TextStyle(
-                                    fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.coral)),
+                                    fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.moneyText)),
                             const Text(' 积分',
                                 style: TextStyle(color: AppColors.textGrey, fontSize: 14)),
                             const Spacer(),

@@ -13,12 +13,60 @@ import urllib.request
 B = os.environ.get("GC_API", "http://localhost:8000")
 fail = 0
 
+# ---- JWT 鉴权：按请求中的身份参数自动选择对应账号的 token ----
+TOKENS = {}          # user_id -> token
+ACCOUNTS = {         # 预置演示账号（user_id -> (phone, password)）
+    "r_001": ("13800001111", "123456"),
+    "r_002": ("13800002222", "123456"),
+    "r_003": ("13800003333", "123456"),
+    "u_admin_001": ("13900000000", "admin123"),
+    "u_demo_001": ("13912345678", "123456"),
+}
+import re as _re
+_ID_RE = _re.compile(r"(?:user_id|recycler_id|admin_id)=([A-Za-z0-9_]+)")
+_AS = None           # 显式指定本次调用身份（优先级最高）
 
-def call(method, path, data=None, expect_ok=True):
-    req = urllib.request.Request(
-        B + path, method=method, headers={"Content-Type": "application/json"},
-        data=json.dumps(data).encode() if data is not None else None,
-    )
+
+def _raw(method, path, data=None, token=None):
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return urllib.request.Request(B + path, method=method, headers=headers,
+                                  data=json.dumps(data).encode() if data is not None else None)
+
+
+def token_for(uid):
+    if uid == "__none__":
+        return None
+    if uid in TOKENS:
+        return TOKENS[uid]
+    if uid in ACCOUNTS:
+        phone, pw = ACCOUNTS[uid]
+        with urllib.request.urlopen(_raw("POST", "/api/auth/login", {"phone": phone, "password": pw}), timeout=15) as r:
+            TOKENS[uid] = json.loads(r.read())["data"]["token"]
+        return TOKENS[uid]
+    return None
+
+
+def _infer_identity(path, data):
+    if _AS:
+        return _AS
+    m = _ID_RE.search(path)
+    if m:
+        return m.group(1)
+    if isinstance(data, dict):
+        for k in ("user_id", "recycler_id", "admin_id"):
+            if data.get(k):
+                return data[k]
+    m = _re.search(r"/api/users/([A-Za-z0-9_]+)(?:/|$)", path)   # 排除 /api/users/sign-in
+    if m:
+        return m.group(1)
+    return None
+
+
+def call(method, path, data=None, expect_ok=True, as_user=None):
+    ident = as_user or _infer_identity(path, data)
+    req = _raw(method, path, data, token_for(ident) if ident else None)
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
             body = r.read()
@@ -45,6 +93,8 @@ def check(cond, s):
 print("【1】用户注册 / 登录 / 角色 / 错误密码")
 u = call("POST", "/api/auth/register", {"phone": "13611112222", "password": "123456", "nickname": "审核用户"})
 uid = u["user"]["id"]
+TOKENS[uid] = u["token"]; ACCOUNTS[uid] = ("13611112222", "123456")
+check(u["token"].count(".") == 2, "注册返回 JWT token")
 check(u["user"]["points"] == 100 and u["user"]["role"] == "user", "注册送 100 积分，角色 user")
 rec = call("POST", "/api/auth/login", {"phone": "13800001111", "password": "123456"})["user"]
 check(rec["role"] == "recycler", "回收员登录 role=recycler")
@@ -67,6 +117,14 @@ check(o["status"] == "pending" and o["lat"] is not None and len(o["items"]) == 2
 check(any("预约成功" in i["title"] for i in call("GET", f"/api/notifications?user_id={uid}")["items"]), "用户收到「预约成功」通知")
 check(any(i["related_id"] == oid for i in call("GET", f"/api/notifications?user_id={rec['id']}")["items"]), "回收员收到「新的待接订单」通知")
 
+print("【2.5】JWT 鉴权守卫")
+check(call("GET", f"/api/home?user_id={uid}", expect_ok=False, as_user="__none__")[1] == 401, "无 token 访问受保护接口 401")
+check(call("GET", f"/api/orders?user_id=u_demo_001", expect_ok=False, as_user=uid)[1] == 403, "携带他人 user_id 403")
+check(call("POST", "/api/users/sign-in", {"user_id": "u_demo_001"}, expect_ok=False, as_user=uid)[1] == 403, "body 伪造他人身份 403")
+check(call("GET", f"/api/orders/{oid}", expect_ok=False, as_user="u_demo_001")[1] == 403, "他人读取我的订单 403")
+check(call("GET", f"/api/orders/{oid}", as_user="r_001")["id"] == oid, "回收员可查看待接订单")
+check(call("GET", "/api/categories", as_user="__none__") and True, "公开接口（品类）无需登录")
+
 print("【3】接单大厅 → 抢单 → 重复抢单拦截 → 位置上报 → 出发")
 check(any(x["id"] == oid for x in call("GET", f"/api/recycler/hall?recycler_id={rec['id']}")), "新订单出现在接单大厅")
 a = call("POST", f"/api/recycler/orders/{oid}/accept", {"recycler_id": rec["id"]})
@@ -76,7 +134,7 @@ check(dup[1] == 400, "他人重复抢单被拦截 400")
 call("POST", "/api/recycler/location", {"recycler_id": rec["id"], "lat": 39.93, "lng": 116.46, "heading": 45, "speed": 6})
 d = call("POST", f"/api/recycler/orders/{oid}/depart", {"recycler_id": rec["id"]})
 check(d["status"] == "in_progress", "出发 in_progress")
-od = call("GET", f"/api/orders/{oid}")
+od = call("GET", f"/api/orders/{oid}", as_user=uid)
 check(od["recycler_location"] and abs(od["recycler_location"]["lat"] - 39.93) < 1e-6, "订单详情携带回收员实时位置")
 check(any("正在赶来" in i["title"] for i in call("GET", f"/api/notifications?user_id={uid}")["items"]), "用户收到「回收员正在赶来」通知")
 check(any(x["id"] == oid for x in call("GET", f"/api/recycler/tasks?recycler_id={rec['id']}&status=active")), "回收员「我的任务」含该订单")
@@ -128,6 +186,16 @@ r2 = call("POST", f"/api/admin/withdrawals/{w2['id']}/review?admin_id={adm['id']
 check(r2["status"] == "approved", "通过打款")
 check(call("POST", f"/api/admin/withdrawals/{w2['id']}/review?admin_id={adm['id']}", {"approve": True}, expect_ok=False)[1] == 400, "重复审核拦截")
 check(call("GET", f"/api/recycler/wallet?recycler_id={rec['id']}")["withdrawn"] >= 10, "已提现累计更新")
+
+print("【6.5】回收员接单开关 / 用户评价")
+check(call("POST", "/api/recycler/online", {"recycler_id": "r_003", "online": False})["online"] is False, "r_003 暂停接单")
+check(call("POST", f"/api/recycler/orders/{oid}/accept", {"recycler_id": "r_003"}, expect_ok=False)[1] == 400, "暂停状态抢单被拦截 400")
+call("POST", "/api/recycler/online", {"recycler_id": "r_003", "online": True})
+rated = call("POST", f"/api/orders/{oid}/rate", {"user_id": uid, "rating": 5, "tags": ["准时上门", "称重公正"], "comment": "很好"})
+check(rated["rating"] == 5 and "准时上门" in (rated["rating_tags"] or ""), "评价成功 5 星 + 标签")
+check(call("POST", f"/api/orders/{oid}/rate", {"user_id": uid, "rating": 4}, expect_ok=False)[1] == 400, "重复评价拦截 400")
+check(call("GET", f"/api/recycler/stats?recycler_id={rec['id']}")["rating_count"] == 129, "回收员评分计数 +1")
+check(any("收到用户评价" in i["title"] for i in call("GET", f"/api/notifications?user_id={rec['id']}")["items"]), "回收员收到评价通知")
 
 print("【7】商城兑换 → 积分扣减/库存 → 管理员发货")
 pts = call("GET", f"/api/users/{uid}")["points"]

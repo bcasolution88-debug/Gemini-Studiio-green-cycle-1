@@ -97,7 +97,7 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
                                       Row(children: [
                                         Text('-${r.points} 积分',
                                             style: const TextStyle(
-                                                color: AppColors.coral, fontWeight: FontWeight.w800, fontSize: 13)),
+                                                color: AppColors.moneyText, fontWeight: FontWeight.w800, fontSize: 13)),
                                         const Spacer(),
                                         Text(r.createdAt.length >= 16 ? r.createdAt.substring(0, 16) : r.createdAt,
                                             style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),

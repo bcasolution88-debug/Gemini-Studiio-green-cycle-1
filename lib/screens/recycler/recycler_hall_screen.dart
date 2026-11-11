@@ -27,6 +27,43 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
   bool _loading = true;
   String? _error;
   String? _acceptingId;
+  bool _toggling = false;
+
+  bool get _online => _stats?.online ?? true;
+
+  Future<void> _toggleOnline(bool v) async {
+    if (_toggling) return;
+    final me = context.read<AppProvider>().userId;
+    if (!v) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('暂停接单？'),
+          content: const Text('暂停后将不再收到新订单提醒，也无法抢单；已接的订单不受影响，可随时重新开启。'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.coral),
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('暂停接单'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    setState(() => _toggling = true);
+    try {
+      await _api.setRecyclerOnline(me, v);
+      if (!mounted) return;
+      showToast(context, v ? '已开启接单，新订单将实时提醒' : '已暂停接单');
+      await _load();
+    } catch (e) {
+      if (mounted) showToast(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _toggling = false);
+    }
+  }
 
   @override
   void initState() {
@@ -55,6 +92,10 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
   }
 
   Future<void> _accept(RecycleOrder o) async {
+    if (!_online) {
+      showToast(context, '当前为「暂停接单」状态，请先开启接单', error: true);
+      return;
+    }
     final me = context.read<AppProvider>().userId;
     final ok = await showDialog<bool>(
       context: context,
@@ -214,10 +255,37 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 14),
+                    _OnlineBar(online: _online, busy: _toggling, onChanged: _toggleOnline),
                   ],
                 ),
               ),
             ),
+            if (!_online && !_loading)
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.coral.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: AppColors.coral.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.pause_circle_filled_rounded, color: AppColors.moneyText, size: 20),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text('您已暂停接单，新订单不会提醒您，也无法抢单。',
+                          style: TextStyle(fontSize: 12.5, color: AppColors.moneyText, fontWeight: FontWeight.w600)),
+                    ),
+                    TextButton(
+                      onPressed: _toggling ? null : () => _toggleOnline(true),
+                      style: TextButton.styleFrom(foregroundColor: AppColors.forest, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                      child: const Text('开启', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  ]),
+                ),
+              ),
             SliverToBoxAdapter(
               child: SectionHeader(
                 title: '待接单 (${_orders.length})',
@@ -251,6 +319,7 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                 itemCount: _orders.length,
                 itemBuilder: (c, i) => _HallCard(
                   order: _orders[i],
+                  enabled: _online,
                   accepting: _acceptingId == _orders[i].id,
                   onAccept: () => _accept(_orders[i]),
                   onTap: () => Navigator.push(
@@ -302,7 +371,7 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                     text: unit,
                     style: TextStyle(
                       fontSize: 10,
-                      color: highlight ? AppColors.deepGreen : Colors.white70,
+                      color: highlight ? AppColors.deepGreen : AppColors.onDarkSoft,
                     ),
                   ),
                 ],
@@ -313,7 +382,7 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
               l,
               style: TextStyle(
                 fontSize: 10,
-                color: highlight ? AppColors.deepGreen : Colors.white70,
+                color: highlight ? AppColors.deepGreen : AppColors.onDarkSoft,
               ),
             ),
           ],
@@ -326,11 +395,13 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
 class _HallCard extends StatelessWidget {
   final RecycleOrder order;
   final bool accepting;
+  final bool enabled;
   final VoidCallback onAccept;
   final VoidCallback onTap;
   const _HallCard({
     required this.order,
     required this.accepting,
+    this.enabled = true,
     required this.onAccept,
     required this.onTap,
   });
@@ -442,6 +513,7 @@ class _HallCard extends StatelessWidget {
                   onPressed: accepting ? null : onAccept,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 18),
+                    backgroundColor: enabled ? null : AppColors.textGrey,
                   ),
                   child: accepting
                       ? const SizedBox(
@@ -452,11 +524,69 @@ class _HallCard extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('抢单', style: TextStyle(fontSize: 14)),
+                      : Text(enabled ? '抢单' : '已暂停', style: const TextStyle(fontSize: 14)),
                 ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 接单状态开关（深绿头部内的胶囊条）
+class _OnlineBar extends StatelessWidget {
+  final bool online;
+  final bool busy;
+  final ValueChanged<bool> onChanged;
+  const _OnlineBar({required this.online, required this.busy, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = online ? AppColors.lime : AppColors.coral;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: c.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: c,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: c.withValues(alpha: 0.7), blurRadius: online ? 8 : 0, spreadRadius: online ? 1 : 0)],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(online ? '接单中' : '已暂停接单',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                Text(online ? '新订单将实时提醒您' : '不接收新单，已接订单不受影响',
+                    style: const TextStyle(color: AppColors.onDarkSoft, fontSize: 11)),
+              ],
+            ),
+          ),
+          if (busy)
+            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          else
+            Switch.adaptive(
+              value: online,
+              onChanged: onChanged,
+              activeThumbColor: AppColors.deepGreen,
+              activeTrackColor: AppColors.lime,
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: AppColors.coral.withValues(alpha: 0.8),
+            ),
         ],
       ),
     );

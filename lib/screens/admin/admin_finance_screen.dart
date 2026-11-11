@@ -195,7 +195,7 @@ class _WithdrawalsTabState extends State<_WithdrawalsTab> with AutomaticKeepAliv
                                     const SizedBox(height: 8),
                                     Text('申请：${w.createdAt}${w.reviewedAt != null ? '  处理：${w.reviewedAt}' : ''}',
                                         style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
-                                    if (w.remark.isNotEmpty) Text('备注：${w.remark}', style: const TextStyle(fontSize: 11, color: AppColors.coral)),
+                                    if (w.remark.isNotEmpty) Text('备注：${w.remark}', style: const TextStyle(fontSize: 11, color: AppColors.moneyText)),
                                     if (w.status == 'pending') ...[
                                       const SizedBox(height: 10),
                                       Row(children: [

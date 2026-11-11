@@ -21,6 +21,9 @@ class User {
   final double totalCarbon;
   final int? nextLevelPoints;
   final int pointsToNextLevel;
+  final bool online; // 回收员接单开关
+  final double rating; // 回收员平均评分
+  final int ratingCount;
 
   User({
     required this.id,
@@ -38,6 +41,9 @@ class User {
     required this.totalCarbon,
     required this.nextLevelPoints,
     required this.pointsToNextLevel,
+    this.online = true,
+    this.rating = 0,
+    this.ratingCount = 0,
   });
 
   factory User.fromJson(Map<String, dynamic> j) => User(
@@ -56,6 +62,9 @@ class User {
         totalCarbon: _d(j['total_carbon']),
         nextLevelPoints: j['next_level_points'] == null ? null : _i(j['next_level_points']),
         pointsToNextLevel: _i(j['points_to_next_level']),
+        online: j['online'] == null ? true : _b(j['online']),
+        rating: _d(j['rating']),
+        ratingCount: _i(j['rating_count']),
       );
 
   double get levelProgress {
@@ -185,6 +194,9 @@ class RecycleOrder {
   final String createdAt;
   final String updatedAt;
   final List<OrderItem> items;
+  final int? rating; // 用户评价（1-5），null 表示未评价
+  final List<String> ratingTags;
+  final String? ratingComment;
 
   RecycleOrder({
     required this.id,
@@ -212,6 +224,9 @@ class RecycleOrder {
     required this.createdAt,
     required this.updatedAt,
     required this.items,
+    this.rating,
+    this.ratingTags = const [],
+    this.ratingComment,
   });
 
   factory RecycleOrder.fromJson(Map<String, dynamic> j) => RecycleOrder(
@@ -244,7 +259,13 @@ class RecycleOrder {
         items: ((j['items'] as List?) ?? [])
             .map((e) => OrderItem.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
+        rating: j['rating'] == null ? null : _i(j['rating']),
+        ratingTags: (j['rating_tags']?.toString() ?? '').split(',').where((t) => t.trim().isNotEmpty).map((t) => t.trim()).toList(),
+        ratingComment: j['rating_comment']?.toString(),
       );
+
+  bool get isRated => rating != null && rating! > 0;
+  bool get canRate => status == 'completed' && !isRated;
 
   String get statusText {
     switch (status) {
@@ -292,6 +313,8 @@ class RecyclerLocation {
   final String avatar;
   final String phone;
   final int activeTasks;
+  final bool online;
+  final double rating;
 
   RecyclerLocation({
     required this.recyclerId,
@@ -304,6 +327,8 @@ class RecyclerLocation {
     this.avatar = '',
     this.phone = '',
     this.activeTasks = 0,
+    this.online = true,
+    this.rating = 0,
   });
 
   factory RecyclerLocation.fromJson(Map<String, dynamic> j) => RecyclerLocation(
@@ -317,6 +342,8 @@ class RecyclerLocation {
         avatar: _s(j['avatar']),
         phone: _s(j['phone']),
         activeTasks: _i(j['active_tasks']),
+        online: j['online'] == null ? true : _b(j['online']),
+        rating: _d(j['rating']),
       );
 }
 
@@ -749,6 +776,8 @@ class RecyclerStats {
   final int activeTasks;
   final int hallPending;
   final double rating;
+  final int ratingCount;
+  final bool online;
   final double balance;
   final int unpaidOrders;
 
@@ -760,6 +789,8 @@ class RecyclerStats {
     required this.activeTasks,
     required this.hallPending,
     required this.rating,
+    this.ratingCount = 0,
+    this.online = true,
     this.balance = 0,
     this.unpaidOrders = 0,
   });
@@ -772,6 +803,8 @@ class RecyclerStats {
         activeTasks: _i(j['active_tasks']),
         hallPending: _i(j['hall_pending']),
         rating: _d(j['rating']),
+        ratingCount: _i(j['rating_count']),
+        online: j['online'] == null ? true : _b(j['online']),
         balance: _d(j['balance']),
         unpaidOrders: _i(j['unpaid_orders']),
       );

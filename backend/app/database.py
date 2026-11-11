@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS users (
     total_points INTEGER NOT NULL DEFAULT 0,
     total_weight REAL NOT NULL DEFAULT 0,
     total_carbon REAL NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    online INTEGER NOT NULL DEFAULT 1,
+    rating REAL NOT NULL DEFAULT 0,
+    rating_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -72,6 +75,10 @@ CREATE TABLE IF NOT EXISTS orders (
     pay_method TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    rating INTEGER,
+    rating_tags TEXT,
+    rating_comment TEXT,
+    rated_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -208,9 +215,25 @@ def db_cursor():
         conn.close()
 
 
+# 已有数据库的增量迁移（新增列）
+MIGRATIONS = [
+    ("users", "online", "INTEGER NOT NULL DEFAULT 1"),
+    ("users", "rating", "REAL NOT NULL DEFAULT 0"),
+    ("users", "rating_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("orders", "rating", "INTEGER"),
+    ("orders", "rating_tags", "TEXT"),
+    ("orders", "rating_comment", "TEXT"),
+    ("orders", "rated_at", "TEXT"),
+]
+
+
 def init_db():
     with db_cursor() as conn:
         conn.executescript(SCHEMA)
+        for table, col, ddl in MIGRATIONS:
+            cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+            if col not in cols:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
 
 
 def rows_to_list(rows):

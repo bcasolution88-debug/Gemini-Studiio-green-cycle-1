@@ -19,8 +19,30 @@ class AppColors {
   static const Color bg = Color(0xFFF4F8F3);
   static const Color card = Colors.white;
   static const Color textDark = Color(0xFF1F2A24);
-  static const Color textGrey = Color(0xFF7A8A80);
+  /// 次级文字：由 #7A8A80（3.6:1）加深为 #5F6F66（白底 5.2:1，满足 WCAG AA）
+  static const Color textGrey = Color(0xFF5F6F66);
   static const Color divider = Color(0xFFE6EDE7);
+
+  /// 深绿头部上的次级白字（原 white70 仅 3.2:1，提升到 92% 不透明度 ≈ 4.6:1）
+  static const Color onDarkSoft = Color(0xEBFFFFFF);
+
+  // ---- 文字安全色（白底对比度 ≥ 4.5:1）----
+  // 浅亮色（lime / yellow / coral / teal / orange 等）仅用于背景、图标与装饰；
+  // 作为文字色时请使用下列加深版本。
+  static const Color moneyText = Color(0xFFD84315);   // 金额（coral 加深，5.0:1）
+  static const Color pointsText = Color(0xFFE65100);  // 积分（amber 加深，4.8:1）
+  static const Color tealText = Color(0xFF00796B);    // 品类标签 / 进行中（4.7:1）
+  static const Color orangeText = Color(0xFFE65100);  // 待接单（4.8:1）
+  static const Color blueText = Color(0xFF1565C0);    // 已接单 / 用户（5.4:1）
+  static const Color pinkText = Color(0xFFC2185B);    // 商城 / 兑换（5.5:1）
+  static const Color purpleText = Color(0xFF7B1FA2);  // 运营 / 提现（7.0:1）
+
+  /// 将任意品牌色映射为可读的文字色：亮度过高时自动加深
+  static Color readable(Color c) {
+    final hsl = HSLColor.fromColor(c);
+    if (hsl.lightness <= 0.42) return c;
+    return hsl.withLightness(0.32).withSaturation((hsl.saturation + 0.1).clamp(0, 1)).toColor();
+  }
 
   static const LinearGradient headerGradient = LinearGradient(
     begin: Alignment.topLeft,

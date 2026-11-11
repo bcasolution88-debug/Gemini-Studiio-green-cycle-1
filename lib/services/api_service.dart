@@ -26,15 +26,40 @@ class ApiService {
     defaultValue: 'https://8000-ihxjxuux9vizfjmghfrwk-2e77fc33.sandbox.novita.ai',
   );
   static const String _prefKey = 'api_base_url';
+  static const String _tokenKey = 'auth_token';
 
   String _baseUrl = _defaultBaseUrl;
   String get baseUrl => _baseUrl;
+
+  /// JWT 登录凭证（登录/注册后由后端签发，随每个请求以 Bearer 头发送）
+  String? _token;
+  String? get token => _token;
+  bool get hasToken => _token != null && _token!.isNotEmpty;
+
+  /// 收到 401 时触发（登录过期 / 凭证无效），由 AppProvider 注册以执行自动登出
+  void Function()? onUnauthorized;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_prefKey);
     if (saved != null && saved.isNotEmpty) _baseUrl = saved;
+    _token = prefs.getString(_tokenKey);
   }
+
+  Future<void> setToken(String? t) async {
+    _token = t;
+    final prefs = await SharedPreferences.getInstance();
+    if (t == null || t.isEmpty) {
+      await prefs.remove(_tokenKey);
+    } else {
+      await prefs.setString(_tokenKey, t);
+    }
+  }
+
+  Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        if (hasToken) 'Authorization': 'Bearer $_token',
+      };
 
   Future<void> setBaseUrl(String url) async {
     _baseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
@@ -67,6 +92,12 @@ class ApiService {
     }
     if (res.statusCode >= 400) {
       final detail = body['detail'] ?? body['message'] ?? '请求失败';
+      if (res.statusCode == 401 && hasToken) {
+        // 登录过期或凭证失效：清除本地凭证并通知上层登出
+        _token = null;
+        SharedPreferences.getInstance().then((p) => p.remove(_tokenKey));
+        onUnauthorized?.call();
+      }
       throw ApiException(detail.toString(), res.statusCode);
     }
     if (body['code'] != null && body['code'] != 0) {
@@ -76,21 +107,21 @@ class ApiService {
   }
 
   Future<dynamic> _get(String path, [Map<String, String>? q]) =>
-      _handle(http.get(_uri(path, q)));
+      _handle(http.get(_uri(path, q), headers: _headers));
 
   Future<dynamic> _post(String path, [Object? data]) => _handle(http.post(
         _uri(path),
-        headers: {'Content-Type': 'application/json'},
+        headers: _headers,
         body: jsonEncode(data ?? {}),
       ));
 
   Future<dynamic> _put(String path, Object data) => _handle(http.put(
         _uri(path),
-        headers: {'Content-Type': 'application/json'},
+        headers: _headers,
         body: jsonEncode(data),
       ));
 
-  Future<dynamic> _delete(String path) => _handle(http.delete(_uri(path)));
+  Future<dynamic> _delete(String path) => _handle(http.delete(_uri(path), headers: _headers));
 
   List<T> _list<T>(dynamic data, T Function(Map<String, dynamic>) f) =>
       ((data as List?) ?? []).map((e) => f(Map<String, dynamic>.from(e))).toList();
@@ -108,14 +139,18 @@ class ApiService {
   // ---------- 认证 ----------
   Future<User> login(String phone, String password) async {
     final d = await _post('/api/auth/login', {'phone': phone, 'password': password});
+    await setToken(d['token']?.toString());
     return User.fromJson(Map<String, dynamic>.from(d['user']));
   }
 
   Future<User> register(String phone, String password, String nickname) async {
     final d = await _post('/api/auth/register',
         {'phone': phone, 'password': password, 'nickname': nickname});
+    await setToken(d['token']?.toString());
     return User.fromJson(Map<String, dynamic>.from(d['user']));
   }
+
+  Future<void> logout() => setToken(null);
 
   Future<User> getUser(String id) async =>
       User.fromJson(Map<String, dynamic>.from(await _get('/api/users/$id')));
@@ -188,6 +223,16 @@ class ApiService {
   Future<RecycleOrder> cancelOrder(String id) async =>
       RecycleOrder.fromJson(Map<String, dynamic>.from(await _post('/api/orders/$id/cancel')));
 
+  /// 用户评价回收员（订单完成后，每单一次）
+  Future<RecycleOrder> rateOrder(String orderId, String userId, int rating,
+          {List<String> tags = const [], String? comment}) async =>
+      RecycleOrder.fromJson(Map<String, dynamic>.from(await _post('/api/orders/$orderId/rate', {
+        'user_id': userId,
+        'rating': rating,
+        'tags': tags,
+        if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+      })));
+
   Future<RecycleOrder> advanceOrder(String id) async =>
       RecycleOrder.fromJson(Map<String, dynamic>.from(await _post('/api/orders/$id/advance')));
 
@@ -244,6 +289,11 @@ extension RoleApi on ApiService {
           String orderId, String recyclerId, List<Map<String, dynamic>> items) async =>
       RecycleOrder.fromJson(Map<String, dynamic>.from(await _post(
           '/api/recycler/orders/$orderId/complete', {'recycler_id': recyclerId, 'items': items})));
+
+  /// 回收员接单开关
+  Future<User> setRecyclerOnline(String recyclerId, bool online) async =>
+      User.fromJson(Map<String, dynamic>.from(
+          await _post('/api/recycler/online', {'recycler_id': recyclerId, 'online': online})));
 
   Future<RecyclerStats> recyclerStats(String recyclerId) async => RecyclerStats.fromJson(
       Map<String, dynamic>.from(await _get('/api/recycler/stats', {'recycler_id': recyclerId})));
@@ -374,13 +424,14 @@ extension RoleApi on ApiService {
           {String status = 'all', String dateFrom = '', String dateTo = ''}) =>
       _uri('/api/admin/export/$dataset', {
         'admin_id': adminId,
+        if (hasToken) 'token': _token!,
         'status': status,
         if (dateFrom.isNotEmpty) 'date_from': dateFrom,
         if (dateTo.isNotEmpty) 'date_to': dateTo,
       });
 
   Future<String> exportCsv(String adminId, String dataset, {String status = 'all'}) async {
-    final res = await http.get(exportUri(adminId, dataset, status: status));
+    final res = await http.get(exportUri(adminId, dataset, status: status), headers: _headers);
     if (res.statusCode >= 400) throw ApiException('导出失败 (${res.statusCode})');
     return utf8.decode(res.bodyBytes);
   }

@@ -191,7 +191,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           width: 86,
                           child: Text('${w.toStringAsFixed(1)}kg · ${c['orders']}单',
                               textAlign: TextAlign.end,
-                              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w700))),
+                              style: TextStyle(fontSize: 11, color: AppColors.readable(color), fontWeight: FontWeight.w700))),
                     ]),
                   );
                 }),
@@ -217,7 +217,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(children: [
           Text(v, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
           const SizedBox(height: 2),
-          Text(l, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          Text(l, style: const TextStyle(color: AppColors.onDarkSoft, fontSize: 10)),
         ]),
       );
 
@@ -235,7 +235,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+                    child: Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.readable(color))),
                   ),
                   const SizedBox(height: 2),
                   Text(sub, style: const TextStyle(fontSize: 10, color: AppColors.textGrey), maxLines: 1, overflow: TextOverflow.ellipsis),

@@ -84,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       tooltip: '后端服务设置',
                       onPressed: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
-                      icon: const Icon(Icons.settings_rounded, color: Colors.white70),
+                      icon: const Icon(Icons.settings_rounded, color: AppColors.onDarkSoft),
                     ),
                   ),
                   ClipRRect(

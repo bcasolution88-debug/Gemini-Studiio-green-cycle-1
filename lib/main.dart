@@ -15,6 +15,7 @@ import 'screens/recycle/order_detail_screen.dart';
 import 'screens/recycler/recycler_shell.dart';
 import 'screens/recycler/recycler_task_detail_screen.dart';
 import 'theme/app_theme.dart';
+import 'widgets/common_widgets.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -92,7 +93,16 @@ class _RootState extends State<_Root> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncNotifications(app));
     if (!app.initialized) return const _Splash();
     final u = app.user;
-    if (u == null) return const LoginScreen();
+    if (u == null) {
+      if (app.sessionExpired) {
+        app.clearSessionExpiredFlag();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = rootNavigatorKey.currentContext;
+          if (ctx != null) showToast(ctx, '登录已过期，请重新登录', error: true);
+        });
+      }
+      return const LoginScreen();
+    }
     if (u.isAdmin) return const AdminShell();
     if (u.isRecycler) return const RecyclerShell();
     return const MainShell();

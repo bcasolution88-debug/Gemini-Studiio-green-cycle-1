@@ -89,23 +89,26 @@ def seed_if_empty():
 
         # 演示用户 / 回收员 / 管理员
         conn.execute(
-            "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO users (id,phone,password,nickname,avatar,role,status,level,points,total_points,total_weight,total_carbon,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (DEMO_USER_ID, "13912345678", "123456", "小绿", "https://i.pravatar.cc/150?img=47",
              "user", "active", 4, 2860, 4120, 86.4, 148.6, _now(-120)),
         )
         for rid, name, phone, avatar in RECYCLERS:
             conn.execute(
-                "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO users (id,phone,password,nickname,avatar,role,status,level,points,total_points,total_weight,total_carbon,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (rid, phone, "123456", name, avatar, "recycler", "active", 1, 0, 0, 0, 0, _now(-200)),
             )
+        # 回收员初始评分（历史订单评价）
+        for rid, rating, cnt in (("r_001", 4.9, 128), ("r_002", 4.7, 96), ("r_003", 4.8, 73)):
+            conn.execute("UPDATE users SET rating=?, rating_count=? WHERE id=?", (rating, cnt, rid))
         conn.execute(
-            "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO users (id,phone,password,nickname,avatar,role,status,level,points,total_points,total_weight,total_carbon,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (ADMIN_ID, "13900000000", "admin123", "平台管理员", "https://i.pravatar.cc/150?img=60",
              "admin", "active", 1, 0, 0, 0, 0, _now(-365)),
         )
         for uid, phone, nick, avatar, lvl, pts, tpts, w, c in EXTRA_USERS:
             conn.execute(
-                "INSERT INTO users VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO users (id,phone,password,nickname,avatar,role,status,level,points,total_points,total_weight,total_carbon,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (uid, phone, "123456", nick, avatar, "user", "active", lvl, pts, tpts, w, c, _now(-90)),
             )
             conn.execute(
@@ -146,7 +149,7 @@ def seed_if_empty():
             rec = RECYCLERS[recycler_idx] if recycler_idx is not None else (None, None, None, None)
             created = _now(day_off, -2)
             conn.execute(
-                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO orders (id,order_no,user_id,status,address_text,contact_name,contact_phone,appointment_time,remark,estimated_weight,actual_weight,amount,points_earned,carbon_saved,recycler_id,recycler_name,recycler_phone,recycler_avatar,lat,lng,paid,pay_method,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (oid, f"GC{datetime.now().strftime('%Y%m')}{1000 + idx:04d}", DEMO_USER_ID, status,
                  "北京市 朝阳区 阳光花园小区 3号楼 2单元 801", "小绿", "13912345678",
                  _now(day_off).replace(_now(day_off)[11:], "14:00-16:00"), "请提前电话联系",
@@ -202,7 +205,7 @@ def seed_if_empty():
             rec = RECYCLERS[recycler_idx] if recycler_idx is not None else (None, None, None, None)
             created = _now(day_off, -3)
             conn.execute(
-                "INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO orders (id,order_no,user_id,status,address_text,contact_name,contact_phone,appointment_time,remark,estimated_weight,actual_weight,amount,points_earned,carbon_saved,recycler_id,recycler_name,recycler_phone,recycler_avatar,lat,lng,paid,pay_method,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (oid, f"GC{datetime.now().strftime('%Y%m')}{2000 + idx:04d}", uid, status,
                  f"北京市 朝阳区 绿地中央广场 {uid[-1]}号楼 {uid[-1]}0{uid[-1]}", u[2], u[1],
                  f"{_now(day_off)[:10]} {slot}", "",

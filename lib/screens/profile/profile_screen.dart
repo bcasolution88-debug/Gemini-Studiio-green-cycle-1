@@ -79,7 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
           TextButton(
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('退出', style: TextStyle(color: AppColors.coral))),
+              child: const Text('退出', style: TextStyle(color: AppColors.moneyText))),
         ],
       ),
     );
@@ -153,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           style: const TextStyle(
                                               color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
                                       const SizedBox(width: 6),
-                                      const Icon(Icons.edit_rounded, color: Colors.white70, size: 16),
+                                      const Icon(Icons.edit_rounded, color: AppColors.onDarkSoft, size: 16),
                                     ],
                                   ),
                                 ),
@@ -292,7 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _stat(String v, String l, Color c) => Expanded(
         child: Column(
           children: [
-            Text(v, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: c)),
+            Text(v, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.readable(c))),
             const SizedBox(height: 2),
             Text(l, style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
           ],

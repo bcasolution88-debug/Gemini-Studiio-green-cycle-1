@@ -57,6 +57,18 @@ class RecyclerActionRequest(BaseModel):
     recycler_id: str
 
 
+class RecyclerOnlineRequest(BaseModel):
+    recycler_id: str
+    online: bool
+
+
+class RateOrderRequest(BaseModel):
+    user_id: str
+    rating: int = Field(ge=1, le=5)
+    tags: Optional[List[str]] = None
+    comment: Optional[str] = Field(default=None, max_length=200)
+
+
 class CompleteItemIn(BaseModel):
     category_id: str
     actual_weight: float = Field(..., ge=0)

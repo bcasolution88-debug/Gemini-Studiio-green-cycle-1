@@ -85,6 +85,9 @@ class _RecyclerProfileScreenState extends State<RecyclerProfileScreen> {
                             const Icon(Icons.star_rounded, color: AppColors.yellow, size: 16),
                             Text(' ${_stats?.rating.toStringAsFixed(1) ?? '-'}',
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                            if ((_stats?.ratingCount ?? 0) > 0)
+                              Text(' · ${_stats!.ratingCount} 条评价',
+                                  style: const TextStyle(color: AppColors.onDarkSoft, fontSize: 12)),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -206,7 +209,7 @@ class _RecyclerProfileScreenState extends State<RecyclerProfileScreen> {
 
   Widget _v(String v, String l, Color c) => Expanded(
         child: Column(children: [
-          Text(v, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: c)),
+          Text(v, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.readable(c))),
           const SizedBox(height: 2),
           Text(l, style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
         ]),

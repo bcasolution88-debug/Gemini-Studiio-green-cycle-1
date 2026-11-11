@@ -221,7 +221,7 @@ class _ProductCard extends StatelessWidget {
                       const SizedBox(width: 3),
                       Text('${p.points}',
                           style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.coral)),
+                              fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.moneyText)),
                       const Spacer(),
                       Text('库存 ${p.stock}',
                           style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
