@@ -54,6 +54,10 @@
 ## 目录结构
 
 > 仓库根目录下的 `app/`、`build.gradle.kts`、`settings.gradle.kts`、`gradle/`、`metadata.json`、`.env.example` 为 **Google AI Studio 生成的原生 Android（Kotlin / Compose）独立工程**（包名 `com.aistudio.greencycle.recycle`），与本 Flutter 项目相互独立、互不依赖。Flutter 工程使用 `android/` 目录，后端位于 `backend/`。
+>
+> **决策（已确认）：两套工程长期并行保留。** 原生工程由 AI Studio 侧维护，本仓库不对其做改动；Flutter 工程（`lib/`、`android/`、`backend/`）为当前发布的正式版本（APK/AAB 均由 Flutter 工程产出）。两者共用同一 FastAPI 后端接口契约（见 `backend/app/main.py`）。
+>
+> **UI 设计图**：`docs/ui_design/`（58 屏真实运行截图、三端总览、PDF 设计文档与 Figma 风格分组画板）。
 
 ```
 .
