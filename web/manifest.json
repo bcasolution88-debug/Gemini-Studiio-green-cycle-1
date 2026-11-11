@@ -1,11 +1,11 @@
 {
-    "name": "green_cycle",
-    "short_name": "green_cycle",
+    "name": "绿循环 Green Cycle",
+    "short_name": "绿循环",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1B5E20",
+    "theme_color": "#1B5E20",
+    "description": "一键预约上门回收，可回收物变碳积分",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -48,7 +48,7 @@ from .schemas import (
 )
 from .seed import ADMIN_ID, DEMO_USER_ID, RECYCLERS, seed_if_empty
 
-app = FastAPI(title="绿循环 Green Cycle API", version="1.3.1", dependencies=[Depends(auth_guard)])
+app = FastAPI(title="绿循环 Green Cycle API", version="1.3.3", dependencies=[Depends(auth_guard)])
 
 # 静态资源（商品图 / 文章封面 / 头像）：前端以 baseUrl + 相对路径访问，不再依赖外部图床
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"

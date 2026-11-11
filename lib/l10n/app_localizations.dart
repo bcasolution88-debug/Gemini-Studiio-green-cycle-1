@@ -20,6 +20,10 @@ class AppLocalizations {
   // ---- 运行时文案翻译表（中文原文 → English）----
   // 用法：context.tr('中文')；未收录的文案原样返回，保证中文环境零风险。
   static const Map<String, String> _zh2en = {
+    '演示账号': 'Demo account',
+    '打开': 'Open',
+    '查看详情': 'View details',
+    '去兑换': 'Redeem',
     '接单开关': 'Accepting orders',
     '一键回收': 'Book pickup',
     '注销账号': 'Delete account',

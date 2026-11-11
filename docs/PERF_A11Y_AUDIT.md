@@ -1,6 +1,6 @@
 # 绿循环 Green Cycle · 性能与无障碍审计报告
 
-> 版本：v1.3.1+6 → 修复后 v1.3.2+7 · 日期：2026-11-11
+> 版本：v1.3.1+6 → v1.3.2+7（首批修复）→ **v1.3.3+8（剩余建议全部落地）** · 日期：2026-11-11
 > 方法：静态扫描（产物体积 / Dart 反模式）+ 运行时实测（Playwright + Chrome DevTools Protocol，Flutter Web CanvasKit，390×844@2x）+ 语义树导出（11 个页面）+ 320px 窄屏溢出检测。
 > 脚本：`/home/user/ui_shots/audit_perf.py`、`audit_a11y.py`、`audit_textscale.py`（审计工具，不入仓库）。
 > 说明：Web 实测反映 Dart 层逻辑与布局开销；Android 原生包的启动与帧率以 `scripts/device_smoke.sh` 真机数据为准。
@@ -131,17 +131,19 @@
 
 回归：`flutter analyze` 0 · `flutter test` 通过 · 后端 e2e 94/94 · 登录页布局无变化（Chip 命中区扩大但视觉不变）。
 
-## 五、剩余建议（按收益排序）
+## 五、剩余建议 → 已全部落地（v1.3.3）
 
-| # | 建议 | 收益 | 工作量 |
+| # | 建议 | 落地方式 | 实测效果 |
 |---|---|---|---|
-| A1 | **部署 Web 时排除 `build/web/ui_design`**（74 MB）；或将设计图库移至独立静态站点 | 产物 105 MB → 31 MB | 极小 |
-| A2 | Web 首屏：Caddy 已启用 brotli/gzip；再加 `Cache-Control: immutable` 给带 hash 的 `main.dart.js`，并在 `index.html` 放品牌色骨架背景 | FCP 感知 3.7 s → <1 s（二次访问近 0） | 小 |
-| A3 | 高频页（首页、订单列表）`context.watch<AppProvider>()` 改 `context.select` 仅订阅所需字段 | 减少无关重建 | 中 |
-| A4 | 地图页（订单详情 / 回收员地图）包一层 `RepaintBoundary` | 隔离地图瓦片重绘 | 小 |
-| B1 | 登录页演示账号 Chip 高度 31dp → 36dp 或生产构建移除（`kReleaseMode`） | 触控面积达标 | 极小 |
-| B2 | 商品/资讯卡片（`GestureDetector`）→ `InkWell` 或加 `Semantics(button, label)` | 读屏可朗读卡片标题并可聚焦 | 小 |
-| B3 | 真机 TalkBack 走查（Web 语义树 ≈ Android，但系统读屏朗读顺序需实测） | 验证 | 回归清单 7.3 |
+| A1 | 部署 Web 时排除 `ui_design` | 新增 `scripts/build_web_release.sh`：release 构建 + 删除 `ui_design` + 关闭演示账号 + 生成 `_headers` 缓存策略 | 产物 **105 MB → 32 MB** |
+| A2 | Web 首屏骨架 + 长缓存 | `web/index.html` 内联品牌色启动页（logo/标题/进度条，`prefers-reduced-motion` 适配），监听 `flutter-first-frame` 淡出；`_headers` 对 `main.dart.js`/`canvaskit` 设 `immutable`；Web 图标/manifest 换为应用图标与品牌色 | **FCP 3752 ms → 96 ms**；Flutter 首帧 3.99 s → 3.38 s |
+| A3 | `watch` → `select` | 首页仅订阅 `home`/`loadingHome`；商城仅订阅 `user` | 用户积分/通知变更不再触发首页整页重建 |
+| A4 | 地图 `RepaintBoundary` | `widgets/order_map.dart` 整体包裹，三处地图页（订单详情/回收员任务/后台地图）同时受益 | 地图瓦片与标记动画隔离为独立图层 |
+| B1 | 演示 Chip | 高度 31 → 36dp，加 `Semantics(button/selected)`；新增 `--dart-define=SHOW_DEMO_ACCOUNTS=false`（`kShowDemoAccounts`），正式包整块移除 | 正式包登录页小目标 5 → 0 |
+| B2 | 内容卡片语义 | 首页品类卡/热门商品卡、商城商品卡、资讯卡 4 类卡片加 `Semantics(button, label, hint)`，内部装饰 `excludeSemantics` | 读屏朗读"纸类 ¥1.2/kg，按钮，预约上门回收"等完整信息 |
+| B3 | TalkBack 走查 | 写入 `docs/QA_REGRESSION_CHECKLIST.md` 7.3 专项（T1–T17，含期望朗读文案） | 待真机执行 |
+
+复测（v1.3.3）：可交互元素 189 个，无标签 **0**，<44dp **11**（全部为铃铛角标数字、演示 Chip 与横向滚动裁剪残留）；滚动 60 fps / 0 掉帧；堆内存 50 → 30 MB 正常回收；空闲 30 s 仍只有 2 次请求。
 
 ---
 

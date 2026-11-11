@@ -52,7 +52,7 @@ class _ShopScreenState extends State<ShopScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AppProvider>().user;
+    final user = context.select<AppProvider, User?>((a) => a.user);
     final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
       body: Column(
@@ -69,31 +69,62 @@ class _ShopScreenState extends State<ShopScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(context.tr('积分商城'),
-                          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                      Text(
+                        context.tr('积分商城'),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(context.tr('用积分兑换环保好物'),
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
+                      Text(
+                        context.tr('用积分兑换环保好物'),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 GestureDetector(
                   onTap: () => Navigator.push(
-                      context, MaterialPageRoute(builder: (_) => const RedemptionsScreen())),
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RedemptionsScreen(),
+                    ),
+                  ),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.monetization_on_rounded, color: AppColors.amber, size: 20),
+                        const Icon(
+                          Icons.monetization_on_rounded,
+                          color: AppColors.amber,
+                          size: 20,
+                        ),
                         const SizedBox(width: 6),
-                        Text('${user?.points ?? 0}',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                        Text(
+                          '${user?.points ?? 0}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textGrey),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: AppColors.textGrey,
+                        ),
                       ],
                     ),
                   ),
@@ -116,9 +147,10 @@ class _ShopScreenState extends State<ShopScreen> {
                   showCheckmark: false,
                   onSelected: (_) => setState(() => _cat = _cats[i]),
                   labelStyle: TextStyle(
-                      color: sel ? Colors.white : AppColors.textDark,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700),
+                    color: sel ? Colors.white : AppColors.textDark,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 );
               },
             ),
@@ -127,33 +159,40 @@ class _ShopScreenState extends State<ShopScreen> {
             child: _loading
                 ? const ListSkeleton(items: 4, itemHeight: 120)
                 : _error != null
-                    ? ErrorState(message: _error!, onRetry: _load)
-                    : _filtered.isEmpty
-                        ? EmptyState(icon: Icons.card_giftcard_rounded, title: context.tr('该分类暂无商品'))
-                        : RefreshIndicator(
-                            color: AppColors.forest,
-                            onRefresh: _load,
-                            child: GridView.builder(
-                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                mainAxisSpacing: 14,
-                                crossAxisSpacing: 14,
-                                childAspectRatio: 0.72,
-                              ),
-                              itemCount: _filtered.length,
-                              itemBuilder: (c, i) => _ProductCard(
-                                product: _filtered[i],
-                                onTap: () async {
-                                  await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) => ProductDetailScreen(product: _filtered[i])));
-                                  _load();
-                                },
-                              ),
-                            ),
+                ? ErrorState(message: _error!, onRetry: _load)
+                : _filtered.isEmpty
+                ? EmptyState(
+                    icon: Icons.card_giftcard_rounded,
+                    title: context.tr('该分类暂无商品'),
+                  )
+                : RefreshIndicator(
+                    color: AppColors.forest,
+                    onRefresh: _load,
+                    child: GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 14,
+                            crossAxisSpacing: 14,
+                            childAspectRatio: 0.72,
                           ),
+                      itemCount: _filtered.length,
+                      itemBuilder: (c, i) => _ProductCard(
+                        product: _filtered[i],
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductDetailScreen(product: _filtered[i]),
+                            ),
+                          );
+                          _load();
+                        },
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -169,69 +208,112 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = product;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          boxShadow: AppShadows.card,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                AspectRatio(aspectRatio: 1.1, child: NetImage(p.image, width: double.infinity)),
-                if (p.isHot)
-                  Positioned(
-                    left: 10,
-                    top: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [AppColors.coral, AppColors.pink]),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text('HOT',
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
-                    ),
-                  ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Semantics(
+      button: true,
+      label: '${p.name} · ${p.points} ${context.tr('积分')}',
+      hint: context.tr('查看详情'),
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            boxShadow: AppShadows.card,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
                 children: [
-                  Text(p.name,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 3),
-                  Text(p.description,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textGrey),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.monetization_on_rounded, size: 16, color: AppColors.amber),
-                      const SizedBox(width: 3),
-                      Text('${p.points}',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.moneyText)),
-                      const Spacer(),
-                      Text('库存 ${p.stock}',
-                          style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
-                    ],
+                  AspectRatio(
+                    aspectRatio: 1.1,
+                    child: NetImage(p.image, width: double.infinity),
                   ),
+                  if (p.isHot)
+                    Positioned(
+                      left: 10,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppColors.coral, AppColors.pink],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'HOT',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      p.description,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textGrey,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.monetization_on_rounded,
+                          size: 16,
+                          color: AppColors.amber,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${p.points}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.moneyText,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '库存 ${p.stock}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

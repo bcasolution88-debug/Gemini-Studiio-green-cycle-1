@@ -173,7 +173,8 @@ flutter run --dart-define=API_BASE_URL=http://192.168.x.x:8000
 ### 4. 打包
 
 ```bash
-flutter build web --release
+flutter build web --release                      # 预览用（含演示账号）
+scripts/build_web_release.sh https://api.example.com   # 生产用（见「性能与无障碍审计」）
 
 # Android APK（需在 android/key.properties 配置签名，否则回退到 debug 签名）
 # 推荐：按 ABI 切分（每包约 17–21 MB，比通用包小 ~65%）
@@ -222,7 +223,7 @@ curl https://$API_DOMAIN/api/health
 ## 性能与无障碍审计
 
 见 `docs/PERF_A11Y_AUDIT.md`（v1.3.2）：滚动 60 fps / 0 掉帧，内存无泄漏，空闲 30 s 仅 2 次轮询；可交互元素无标签 3 → 0，<44dp 触控目标 59 → 11；320 px 窄屏 0 溢出。
-**部署 Web 端时请排除 `build/web/ui_design/`（74 MB 设计图库，仅沙箱预览用）**，可用 `flutter build web --release && rm -rf build/web/ui_design`。
+**Web 生产构建请使用 `scripts/build_web_release.sh [API_BASE_URL]`**：自动排除 74 MB 设计图库（105 MB → 32 MB）、关闭登录页演示账号（`SHOW_DEMO_ACCOUNTS=false`）、生成 `_headers` 长缓存策略；`index.html` 内置品牌骨架页（FCP 96 ms）。
 
 ## 上架与真机回归
 

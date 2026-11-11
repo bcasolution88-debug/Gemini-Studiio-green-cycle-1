@@ -43,7 +43,8 @@ class _NewsScreenState extends State<NewsScreen> {
     }
   }
 
-  List<Article> get _filtered => _cat == '全部' ? _all : _all.where((a) => a.category == _cat).toList();
+  List<Article> get _filtered =>
+      _cat == '全部' ? _all : _all.where((a) => a.category == _cat).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -64,15 +65,30 @@ class _NewsScreenState extends State<NewsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(context.tr('环保资讯'),
-                          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                      Text(
+                        context.tr('环保资讯'),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(context.tr('分类知识 · 环保科普 · 绿色生活'),
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
+                      Text(
+                        context.tr('分类知识 · 环保科普 · 绿色生活'),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 13,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const Icon(Icons.menu_book_rounded, color: AppColors.lime, size: 40),
+                const Icon(
+                  Icons.menu_book_rounded,
+                  color: AppColors.lime,
+                  size: 40,
+                ),
               ],
             ),
           ),
@@ -91,7 +107,10 @@ class _NewsScreenState extends State<NewsScreen> {
                   showCheckmark: false,
                   onSelected: (_) => setState(() => _cat = _cats[i]),
                   labelStyle: TextStyle(
-                      color: sel ? Colors.white : AppColors.textDark, fontSize: 13, fontWeight: FontWeight.w700),
+                    color: sel ? Colors.white : AppColors.textDark,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 );
               },
             ),
@@ -100,19 +119,23 @@ class _NewsScreenState extends State<NewsScreen> {
             child: _loading
                 ? const ListSkeleton(items: 4, itemHeight: 110)
                 : _error != null
-                    ? ErrorState(message: _error!, onRetry: _load)
-                    : list.isEmpty
-                        ? EmptyState(icon: Icons.article_rounded, title: context.tr('暂无资讯'))
-                        : RefreshIndicator(
-                            color: AppColors.forest,
-                            onRefresh: _load,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
-                              itemCount: list.length,
-                              itemBuilder: (c, i) =>
-                                  i == 0 && _cat == '全部' ? _FeaturedCard(a: list[i]) : _ArticleTile(a: list[i]),
-                            ),
-                          ),
+                ? ErrorState(message: _error!, onRetry: _load)
+                : list.isEmpty
+                ? EmptyState(
+                    icon: Icons.article_rounded,
+                    title: context.tr('暂无资讯'),
+                  )
+                : RefreshIndicator(
+                    color: AppColors.forest,
+                    onRefresh: _load,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
+                      itemCount: list.length,
+                      itemBuilder: (c, i) => i == 0 && _cat == '全部'
+                          ? _FeaturedCard(a: list[i])
+                          : _ArticleTile(a: list[i]),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -126,59 +149,90 @@ class _FeaturedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ArticleDetailScreen(article: a))),
-      child: Container(
-        height: 220,
-        margin: const EdgeInsets.only(bottom: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          boxShadow: AppShadows.soft,
+    return Semantics(
+      button: true,
+      label: '${a.title} · ${context.tr(a.category)}',
+      hint: context.tr('打开'),
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ArticleDetailScreen(article: a)),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            NetImage(a.cover),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.75)],
+        child: Container(
+          height: 220,
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            boxShadow: AppShadows.soft,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              NetImage(a.cover),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.75),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.sunGradient,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(a.category,
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.sunGradient,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        a.category,
                         style: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.deepGreen)),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(a.title,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.deepGreen,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      a.title,
                       style: const TextStyle(
-                          color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800, height: 1.3),
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        height: 1.3,
+                      ),
                       maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
-                  Text('${a.author} · ${a.views} 阅读',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
-                ],
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${a.author} · ${a.views} 阅读',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -194,7 +248,10 @@ class _ArticleTile extends StatelessWidget {
     return SoftCard(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ArticleDetailScreen(article: a))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ArticleDetailScreen(article: a)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -202,31 +259,68 @@ class _ArticleTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(a.title,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, height: 1.3),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
+                Text(
+                  a.title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 6),
-                Text(a.summary,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textGrey, height: 1.4),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
+                Text(
+                  a.summary,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textGrey,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 10),
                 Row(
                   children: [
                     StatusChip(text: a.category, color: AppColors.teal),
                     const Spacer(),
-                    const Icon(Icons.remove_red_eye_outlined, size: 13, color: AppColors.textGrey),
-                    Text(' ${a.views}  ', style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
-                    const Icon(Icons.favorite_border_rounded, size: 13, color: AppColors.textGrey),
-                    Text(' ${a.likes}', style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
+                    const Icon(
+                      Icons.remove_red_eye_outlined,
+                      size: 13,
+                      color: AppColors.textGrey,
+                    ),
+                    Text(
+                      ' ${a.views}  ',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textGrey,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.favorite_border_rounded,
+                      size: 13,
+                      color: AppColors.textGrey,
+                    ),
+                    Text(
+                      ' ${a.likes}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textGrey,
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          NetImage(a.cover, width: 100, height: 100, radius: BorderRadius.circular(14)),
+          NetImage(
+            a.cover,
+            width: 100,
+            height: 100,
+            radius: BorderRadius.circular(14),
+          ),
         ],
       ),
     );

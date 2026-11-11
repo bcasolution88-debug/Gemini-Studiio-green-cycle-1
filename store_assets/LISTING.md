@@ -17,7 +17,7 @@
 > 全部截图为 v1.3.0 真实界面（Playwright 360×640@3x 采集），符合 Play 要求（PNG/JPG、长边 ≤ 短边 2 倍、≥ 320px、≤ 3840px）。
 >
 > 发布包：`build/app/outputs/bundle/release/app-release.aab`（Google Play 使用 AAB 格式）
-> 包名 `com.greencycle.recycle` · **版本 1.3.1 (versionCode 6)** · targetSdk 36 · minSdk 由 Flutter 默认（21）
+> 包名 `com.greencycle.recycle` · **版本 1.3.3 (versionCode 8)** · targetSdk 36 · minSdk 由 Flutter 默认（21）
 > 安装包体积：AAB 下发约 18–20 MB / 单 ABI APK 17–21 MB
 
 ## 应用名称（30 字符内）
@@ -106,7 +106,7 @@
 
 ## 版本说明（What's new）
 
-v1.3.1
+v1.3.3
 - 全新首页「本周战报」，一眼看到本周回收重量、减碳量与积分
 - 首次启动 3 页引导；全部列表空态给出下一步提示
 - 回收员可一键"暂停接单"，用户完成订单后可为回收员评分
@@ -121,7 +121,7 @@ v1.3.1
 ## 上架前核对清单（Play Console）
 
 - [ ] **应用签名**：使用 `android/release-key.jks` 上传 AAB；建议开启 Play App Signing 并妥善离线备份 keystore 与 `key.properties`（二者已 gitignore）
-- [ ] **API 地址**：以 `--dart-define=API_BASE_URL=https://你的域名` 构建正式包（当前演示包指向沙箱地址，**不能上架**）
+- [ ] **API 地址与演示账号**：以 `--dart-define=API_BASE_URL=https://你的域名 --dart-define=SHOW_DEMO_ACCOUNTS=false` 构建正式包（移除登录页演示账号快捷入口；当前演示包指向沙箱地址，**不能上架**）
 - [ ] **隐私政策 URL** 与 **账号删除 URL** 已在公网可访问（见上表）
 - [ ] 数据安全表单按上表填写；"应用内可删除账号"选 **是**
 - [ ] 目标 API 级别 ≥ Play 当年要求（当前 targetSdk 36 ✅）

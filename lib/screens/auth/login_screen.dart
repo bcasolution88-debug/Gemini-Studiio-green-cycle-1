@@ -39,7 +39,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final app = context.read<AppProvider>();
     try {
       if (_isRegister) {
-        await app.register(_phone.text.trim(), _password.text, _nickname.text.trim());
+        await app.register(
+          _phone.text.trim(),
+          _password.text,
+          _nickname.text.trim(),
+        );
       } else {
         await app.login(_phone.text.trim(), _password.text);
       }
@@ -83,22 +87,44 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.topRight,
                     child: IconButton(
-                      onPressed: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ServerSettingsScreen(),
+                        ),
+                      ),
                       tooltip: context.tr('后端服务设置'),
-                      icon: const Icon(Icons.settings_rounded, color: AppColors.onDarkSoft),
+                      icon: const Icon(
+                        Icons.settings_rounded,
+                        color: AppColors.onDarkSoft,
+                      ),
                     ),
                   ),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(26),
-                    child: Image.asset('assets/icons/app_icon.png', width: 96, height: 96),
+                    child: Image.asset(
+                      'assets/icons/app_icon.png',
+                      width: 96,
+                      height: 96,
+                    ),
                   ),
                   const SizedBox(height: 14),
-                  const Text('绿循环',
-                      style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900)),
+                  const Text(
+                    '绿循环',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  Text('回收 · 积分 · 减碳 · 美好生活',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14)),
+                  Text(
+                    '回收 · 积分 · 减碳 · 美好生活',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 14,
+                    ),
+                  ),
                   const SizedBox(height: 36),
                   Container(
                     padding: const EdgeInsets.all(24),
@@ -118,8 +144,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextFormField(
                               controller: _nickname,
                               decoration: const InputDecoration(
-                                  labelText: '昵称', prefixIcon: Icon(Icons.face_rounded)),
-                              validator: (v) => (v == null || v.trim().isEmpty) ? '请输入昵称' : null,
+                                labelText: '昵称',
+                                prefixIcon: Icon(Icons.face_rounded),
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? '请输入昵称'
+                                  : null,
                             ),
                             const SizedBox(height: 14),
                           ],
@@ -127,9 +157,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _phone,
                             keyboardType: TextInputType.phone,
                             decoration: const InputDecoration(
-                                labelText: '手机号', prefixIcon: Icon(Icons.phone_android_rounded)),
+                              labelText: '手机号',
+                              prefixIcon: Icon(Icons.phone_android_rounded),
+                            ),
                             validator: (v) =>
-                                (v == null || v.trim().length != 11) ? '请输入 11 位手机号' : null,
+                                (v == null || v.trim().length != 11)
+                                ? '请输入 11 位手机号'
+                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
@@ -139,14 +173,20 @@ class _LoginScreenState extends State<LoginScreen> {
                               labelText: '密码',
                               prefixIcon: const Icon(Icons.lock_rounded),
                               suffixIcon: IconButton(
-                                tooltip: _obscure ? context.tr('显示密码') : context.tr('隐藏密码'),
-                                icon: Icon(_obscure
-                                    ? Icons.visibility_off_rounded
-                                    : Icons.visibility_rounded),
-                                onPressed: () => setState(() => _obscure = !_obscure),
+                                tooltip: _obscure
+                                    ? context.tr('显示密码')
+                                    : context.tr('隐藏密码'),
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
                               ),
                             ),
-                            validator: (v) => (v == null || v.length < 6) ? '密码至少 6 位' : null,
+                            validator: (v) =>
+                                (v == null || v.length < 6) ? '密码至少 6 位' : null,
                           ),
                           const SizedBox(height: 24),
                           SizedBox(
@@ -158,30 +198,43 @@ class _LoginScreenState extends State<LoginScreen> {
                                       width: 22,
                                       height: 22,
                                       child: CircularProgressIndicator(
-                                          color: Colors.white, strokeWidth: 2.5))
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
                                   : Text(_isRegister ? '注册并登录' : '登录'),
                             ),
                           ),
-                          if (!_isRegister) ...[
+                          // B1: 演示账号快速填入仅在允许时显示；商店正式包以 --dart-define=SHOW_DEMO_ACCOUNTS=false 移除
+                          if (!_isRegister && kShowDemoAccounts) ...[
                             const SizedBox(height: 14),
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: AppColors.yellow.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(AppRadius.sm),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.sm,
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Row(
                                     children: [
-                                      Icon(Icons.info_outline_rounded, size: 18, color: AppColors.amber),
+                                      Icon(
+                                        Icons.info_outline_rounded,
+                                        size: 18,
+                                        color: AppColors.amber,
+                                      ),
                                       SizedBox(width: 8),
-                                      Text('演示账号（点击快速填入）',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.textDark)),
+                                      Text(
+                                        '演示账号（点击快速填入）',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textDark,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 8),
@@ -189,12 +242,27 @@ class _LoginScreenState extends State<LoginScreen> {
                                     spacing: 8,
                                     runSpacing: 6,
                                     children: [
-                                      _demoChip('用户端', '13912345678', '123456',
-                                          Icons.person_rounded, AppColors.forest),
-                                      _demoChip('回收员端', '13800001111', '123456',
-                                          Icons.electric_moped_rounded, AppColors.blue),
-                                      _demoChip('管理后台', '13900000000', 'admin123',
-                                          Icons.admin_panel_settings_rounded, AppColors.purple),
+                                      _demoChip(
+                                        '用户端',
+                                        '13912345678',
+                                        '123456',
+                                        Icons.person_rounded,
+                                        AppColors.forest,
+                                      ),
+                                      _demoChip(
+                                        '回收员端',
+                                        '13800001111',
+                                        '123456',
+                                        Icons.electric_moped_rounded,
+                                        AppColors.blue,
+                                      ),
+                                      _demoChip(
+                                        '管理后台',
+                                        '13900000000',
+                                        'admin123',
+                                        Icons.admin_panel_settings_rounded,
+                                        AppColors.purple,
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -243,48 +311,67 @@ class _LoginScreenState extends State<LoginScreen> {
             borderRadius: BorderRadius.circular(AppRadius.sm),
           ),
           alignment: Alignment.center,
-          child: Text(text,
-              style: TextStyle(
-                  color: selected ? Colors.white : AppColors.textGrey,
-                  fontWeight: FontWeight.w700)),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: selected ? Colors.white : AppColors.textGrey,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _demoChip(String label, String phone, String pwd, IconData icon, Color color) {
+  Widget _demoChip(
+    String label,
+    String phone,
+    String pwd,
+    IconData icon,
+    Color color,
+  ) {
     final active = _phone.text == phone;
-    return GestureDetector(
-      onTap: () => setState(() {
-        _phone.text = phone;
-        _password.text = pwd;
-      }),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? color : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: active ? Colors.white : color),
-            const SizedBox(width: 4),
-            Text(label,
+    return Semantics(
+      button: true,
+      label: '${context.tr('演示账号')}: $label',
+      selected: active,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => setState(() {
+          _phone.text = phone;
+          _password.text = pwd;
+        }),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 36),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? color : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: active ? Colors.white : color),
+              const SizedBox(width: 4),
+              Text(
+                label,
                 style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: active ? Colors.white : color)),
-          ],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: active ? Colors.white : color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _bubble(double size, Color color) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
 }

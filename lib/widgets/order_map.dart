@@ -27,101 +27,150 @@ class OrderMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final points = <LatLng>[destination, if (recycler != null) recycler!, ...extraMarkers.map((e) => e.point)];
+    final points = <LatLng>[
+      destination,
+      if (recycler != null) recycler!,
+      ...extraMarkers.map((e) => e.point),
+    ];
     final center = recycler == null
         ? destination
-        : LatLng((destination.latitude + recycler!.latitude) / 2, (destination.longitude + recycler!.longitude) / 2);
-    final distance = recycler == null ? null : LocationService.distanceKm(recycler!, destination);
+        : LatLng(
+            (destination.latitude + recycler!.latitude) / 2,
+            (destination.longitude + recycler!.longitude) / 2,
+          );
+    final distance = recycler == null
+        ? null
+        : LocationService.distanceKm(recycler!, destination);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: SizedBox(
-        height: height,
-        child: Stack(
-          children: [
-            FlutterMap(
-              options: MapOptions(
-                initialCenter: center,
-                initialZoom: recycler == null ? 15 : 14,
-                initialCameraFit: points.length > 1
-                    ? CameraFit.bounds(bounds: LatLngBounds.fromPoints(points), padding: const EdgeInsets.all(48))
-                    : null,
-                interactionOptions: InteractionOptions(
-                  flags: interactive ? InteractiveFlag.all & ~InteractiveFlag.rotate : InteractiveFlag.none,
+    // A4: 地图瓦片与标记动画频繁重绘，隔离到独立图层避免拖累整页
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: SizedBox(
+          height: height,
+          child: Stack(
+            children: [
+              FlutterMap(
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: recycler == null ? 15 : 14,
+                  initialCameraFit: points.length > 1
+                      ? CameraFit.bounds(
+                          bounds: LatLngBounds.fromPoints(points),
+                          padding: const EdgeInsets.all(48),
+                        )
+                      : null,
+                  interactionOptions: InteractionOptions(
+                    flags: interactive
+                        ? InteractiveFlag.all & ~InteractiveFlag.rotate
+                        : InteractiveFlag.none,
+                  ),
                 ),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.greencycle.recycle',
-                ),
-                if (recycler != null)
-                  PolylineLayer(polylines: [
-                    Polyline(
-                      points: [recycler!, destination],
-                      color: AppColors.forest.withValues(alpha: 0.75),
-                      strokeWidth: 4,
-                      pattern: const StrokePattern.dotted(),
-                    ),
-                  ]),
-                MarkerLayer(markers: [
-                  Marker(
-                    point: destination,
-                    width: 44,
-                    height: 52,
-                    alignment: Alignment.topCenter,
-                    child: const _Pin(color: AppColors.coral, icon: Icons.home_rounded),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.greencycle.recycle',
                   ),
                   if (recycler != null)
-                    Marker(
-                      point: recycler!,
-                      width: 48,
-                      height: 48,
-                      child: _RecyclerDot(avatar: recyclerAvatar ?? ''),
-                    ),
-                  ...extraMarkers.map((m) => Marker(
-                        point: m.point,
-                        width: 48,
-                        height: 56,
-                        alignment: Alignment.topCenter,
-                        child: GestureDetector(
-                          onTap: m.onTap,
-                          child: _RecyclerDot(avatar: m.avatar, label: m.label, badge: m.badge),
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: [recycler!, destination],
+                          color: AppColors.forest.withValues(alpha: 0.75),
+                          strokeWidth: 4,
+                          pattern: const StrokePattern.dotted(),
                         ),
-                      )),
-                ]),
-              ],
-            ),
-            if (distance != null)
-              Positioned(
-                left: 12,
-                top: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: AppShadows.card,
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.near_me_rounded, size: 14, color: AppColors.forest),
-                    const SizedBox(width: 4),
-                    Text(
-                      distance < 1
-                          ? '距离 ${(distance * 1000).toStringAsFixed(0)} m · 约 ${(distance * 1000 / 100).ceil()} 分钟'
-                          : '距离 ${distance.toStringAsFixed(1)} km · 约 ${(distance / 0.4).ceil()} 分钟',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      ],
                     ),
-                  ]),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: destination,
+                        width: 44,
+                        height: 52,
+                        alignment: Alignment.topCenter,
+                        child: const _Pin(
+                          color: AppColors.coral,
+                          icon: Icons.home_rounded,
+                        ),
+                      ),
+                      if (recycler != null)
+                        Marker(
+                          point: recycler!,
+                          width: 48,
+                          height: 48,
+                          child: _RecyclerDot(avatar: recyclerAvatar ?? ''),
+                        ),
+                      ...extraMarkers.map(
+                        (m) => Marker(
+                          point: m.point,
+                          width: 48,
+                          height: 56,
+                          alignment: Alignment.topCenter,
+                          child: GestureDetector(
+                            onTap: m.onTap,
+                            child: _RecyclerDot(
+                              avatar: m.avatar,
+                              label: m.label,
+                              badge: m.badge,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (distance != null)
+                Positioned(
+                  left: 12,
+                  top: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: AppShadows.card,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.near_me_rounded,
+                          size: 14,
+                          color: AppColors.forest,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          distance < 1
+                              ? '距离 ${(distance * 1000).toStringAsFixed(0)} m · 约 ${(distance * 1000 / 100).ceil()} 分钟'
+                              : '距离 ${distance.toStringAsFixed(1)} km · 约 ${(distance / 0.4).ceil()} 分钟',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              Positioned(
+                right: 6,
+                bottom: 4,
+                child: Text(
+                  '© OpenStreetMap',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Colors.black.withValues(alpha: 0.5),
+                  ),
                 ),
               ),
-            Positioned(
-              right: 6,
-              bottom: 4,
-              child: Text('© OpenStreetMap',
-                  style: TextStyle(fontSize: 9, color: Colors.black.withValues(alpha: 0.5))),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -134,7 +183,13 @@ class MapMarkerData {
   final String label;
   final int badge;
   final VoidCallback? onTap;
-  MapMarkerData({required this.point, this.avatar = '', this.label = '', this.badge = 0, this.onTap});
+  MapMarkerData({
+    required this.point,
+    this.avatar = '',
+    this.label = '',
+    this.badge = 0,
+    this.onTap,
+  });
 }
 
 class _Pin extends StatelessWidget {
@@ -154,7 +209,13 @@ class _Pin extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 3),
-            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 3))],
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.4),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Icon(icon, color: Colors.white, size: 18),
         ),
@@ -181,7 +242,13 @@ class _RecyclerDot extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: AppColors.forest.withValues(alpha: 0.45), blurRadius: 10, spreadRadius: 2)],
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.forest.withValues(alpha: 0.45),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
               child: Avatar(avatar, size: 40, border: AppColors.lime),
             ),
@@ -191,8 +258,18 @@ class _RecyclerDot extends StatelessWidget {
                 top: -4,
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(color: AppColors.coral, shape: BoxShape.circle),
-                  child: Text('$badge', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                  decoration: const BoxDecoration(
+                    color: AppColors.coral,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$badge',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -201,8 +278,15 @@ class _RecyclerDot extends StatelessWidget {
           Container(
             margin: const EdgeInsets.only(top: 2),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), boxShadow: AppShadows.card),
-            child: Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: AppShadows.card,
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800),
+            ),
           ),
       ],
     );
