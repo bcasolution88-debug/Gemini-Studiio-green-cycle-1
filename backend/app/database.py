@@ -234,6 +234,8 @@ MIGRATIONS = [
     ("orders", "rating_tags", "TEXT"),
     ("orders", "rating_comment", "TEXT"),
     ("orders", "rated_at", "TEXT"),
+    ("users", "deleted_at", "TEXT"),
+    ("users", "delete_reason", "TEXT"),
 ]
 
 

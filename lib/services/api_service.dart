@@ -295,6 +295,19 @@ extension RoleApi on ApiService {
       User.fromJson(Map<String, dynamic>.from(
           await _post('/api/recycler/online', {'recycler_id': recyclerId, 'online': online})));
 
+  /// 账号注销（Play 政策）：匿名化个人信息并使 token 失效
+  Future<void> deleteAccount(String userId, String password, {String? reason}) async {
+    await _post('/api/account/delete', {
+      'user_id': userId,
+      'password': password,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    });
+  }
+
+  /// 隐私政策 / 注销说明公网地址（随后端 baseUrl）
+  String get privacyPolicyUrl => '$_baseUrl/static/legal/privacy.html';
+  String get accountDeletionUrl => '$_baseUrl/static/legal/account-deletion.html';
+
   // ---------------- 推送：设备 token ----------------
   Future<Map<String, dynamic>> registerPushToken(String userId, String token,
           {String platform = 'android', String? appVersion, String? locale}) async =>

@@ -107,6 +107,8 @@ export GC_PUSH_DRY_RUN=1                                              # 可选�
 │   ├── models/models.dart        # 数据模型（安全解析）
 │   ├── services/api_service.dart # REST API 封装
 │   ├── services/push_service.dart # 推送抽象层（FCM 就绪）
+├── scripts/device_smoke.sh      # 真机冒烟脚本
+├── docs/QA_REGRESSION_CHECKLIST.md # 真机回归清单
 │   ├── providers/app_provider.dart
 │   ├── widgets/common_widgets.dart
 │   └── screens/
@@ -198,6 +200,33 @@ keyAlias=release
 storeFile=../release-key.jks
 ```
 
+## 生产部署（Docker）
+
+```bash
+cd backend
+cp .env.example .env            # 填写 GC_JWT_SECRET / GC_ADMIN_PHONE / GC_ADMIN_PASSWORD / API_DOMAIN / ACME_EMAIL
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml logs -f api
+curl https://$API_DOMAIN/api/health
+```
+
+- `Dockerfile`：多阶段构建、非 root 运行、内置健康检查；数据卷 `/data` 持久化 SQLite
+- `docker-compose.prod.yml`：API 不暴露公网端口，由 **Caddy** 反向代理并自动签发 Let's Encrypt 证书（`Caddyfile` 含 HSTS 等安全头与静态资源缓存）
+- `docker-compose.yml`：本地开发（带演示数据、代码热更新）`docker compose up`
+- `backup_db.sh`：SQLite 在线一致性备份 + 保留最近 14 份，建议加入 crontab：`0 3 * * * /opt/greencycle/backend/backup_db.sh /backups`
+
+**生产模式（`GC_ENV=production`）行为**：未设置 `GC_JWT_SECRET` 拒绝启动；不写入演示账号/订单，仅按 `GC_ADMIN_PHONE/PASSWORD` 创建初始管理员（密码哈希）；CORS 仅放行 `GC_CORS_ORIGINS`。所有变量说明见 `backend/.env.example`。
+
+> SQLite 适合单实例（`GC_WORKERS=1`）。日订单超过数万时建议迁移 PostgreSQL（`database.py` 仅需替换连接层）。
+
+## 上架与真机回归
+
+- **Play 资料**：`store_assets/LISTING.md`（名称/说明/截图 7 张 + 平板 2 张/数据安全表单/内容分级/上架核对清单）
+- **隐私政策 & 账号删除页**：随后端部署于 `/static/legal/privacy.html`、`/static/legal/account-deletion.html`；App 内「我的 → 隐私政策 / 注销账号」
+- **账号注销接口**：`POST /api/account/delete`（密码校验、进行中订单/待审核提现拦截、个人信息即时匿名化、token 失效）
+- **真机冒烟**：`scripts/device_smoke.sh`（自动识别 ABI 安装、冷启动计时、崩溃/ANR 扫描、权限审计、后端连通性）
+- **回归清单**：`docs/QA_REGRESSION_CHECKLIST.md`（设备矩阵 + 9 大模块 90+ 用例 + 发布判定标准）
+
 ## 测试
 
 ```bash
@@ -209,7 +238,7 @@ cd backend && rm -f green_cycle.db && uvicorn app.main:app --port 8000 &
 python3 backend/tests/test_e2e.py
 ```
 
-`test_e2e.py` 覆盖：注册登录与角色 → 预约（通知触发）→ 抢单/出发/位置 → 称重结算（金额/积分/减碳/服务费精确校验）→ 确认付款 → 提现冻结/驳回退款/打款 → 商城兑换发货 → 管理后台指派/取消/权限/禁用/调价/概览/地图/6 类导出 → 通知已读删除 → 统计/签到/首页，共 86 项断言（含 JWT 鉴权、接单开关/评价、推送 token 注册）。
+`test_e2e.py` 覆盖：注册登录与角色 → 预约（通知触发）→ 抢单/出发/位置 → 称重结算（金额/积分/减碳/服务费精确校验）→ 确认付款 → 提现冻结/驳回退款/打款 → 商城兑换发货 → 管理后台指派/取消/权限/禁用/调价/概览/地图/6 类导出 → 通知已读删除 → 统计/签到/首页，共 94 项断言（含 JWT 鉴权、接单开关/评价、推送 token 注册、账号注销）。
 
 ## 后端 API 一览
 

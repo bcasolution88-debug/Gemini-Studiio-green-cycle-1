@@ -175,3 +175,9 @@ class PushRegisterRequest(BaseModel):
 class PushUnregisterRequest(BaseModel):
     user_id: str
     token: str
+
+
+class DeleteAccountRequest(BaseModel):
+    user_id: str
+    password: str = Field(min_length=6)
+    reason: Optional[str] = Field(default=None, max_length=200)

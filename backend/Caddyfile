@@ -1,0 +1,20 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+	# 安全响应头
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	# 静态资源长缓存
+	@static path /static/*
+	header @static Cache-Control "public, max-age=604800"
+	reverse_proxy api:8000 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

@@ -1,0 +1,48 @@
+# 生产部署：Caddy 反向代理 + 自动 HTTPS，API 不直接暴露公网端口
+# 用法：
+#   cp .env.example .env && 编辑 .env
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml logs -f api
+services:
+  api:
+    build: .
+    image: greencycle-api:1.3.1
+    container_name: greencycle-api
+    env_file: .env
+    environment:
+      GC_ENV: production
+      GREEN_CYCLE_DB: /data/green_cycle.db
+    volumes:
+      - gc_data:/data                      # SQLite 数据库（持久化，务必定期备份）
+      - gc_static:/app/static/uploads      # 运行期上传（预留）
+      # - ./secrets:/secrets:ro            # FCM 服务账号（可选）
+    expose:
+      - "8000"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: greencycle-caddy
+    depends_on: [api]
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  gc_data:
+  gc_static:
+  caddy_data:
+  caddy_config:

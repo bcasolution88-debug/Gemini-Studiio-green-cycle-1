@@ -1,4 +1,6 @@
 """绿循环 Green Cycle 后端 API（FastAPI + SQLite）"""
+import logging
+import os
 import random
 import string
 import uuid
@@ -13,7 +15,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from .auth import auth_guard, create_token, current_user, hash_password, needs_rehash, verify_password
+from .auth import JWT_SECRET_IS_DEFAULT, auth_guard, create_token, current_user, hash_password, needs_rehash, verify_password
 from .database import DB_PATH, db_cursor, init_db, rows_to_list
 from . import push as push_svc
 from .schemas import (
@@ -32,6 +34,7 @@ from .schemas import (
     RecyclerActionRequest,
     RecyclerOnlineRequest,
     PushRegisterRequest,
+    DeleteAccountRequest,
     PushUnregisterRequest,
     RateOrderRequest,
     RedeemRequest,
@@ -45,17 +48,29 @@ from .schemas import (
 )
 from .seed import ADMIN_ID, DEMO_USER_ID, RECYCLERS, seed_if_empty
 
-app = FastAPI(title="绿循环 Green Cycle API", version="1.1.0", dependencies=[Depends(auth_guard)])
+app = FastAPI(title="绿循环 Green Cycle API", version="1.3.1", dependencies=[Depends(auth_guard)])
 
 # 静态资源（商品图 / 文章封面 / 头像）：前端以 baseUrl + 相对路径访问，不再依赖外部图床
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 _STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
+# ---------------- 运行环境 ----------------
+# GC_ENV=production 时：拒绝默认 JWT 密钥启动、CORS 仅放行 GC_CORS_ORIGINS、默认不写入演示账号/订单
+GC_ENV = os.environ.get("GC_ENV", "development").lower()
+IS_PROD = GC_ENV == "production"
+_cors = [o.strip() for o in os.environ.get("GC_CORS_ORIGINS", "").split(",") if o.strip()]
+if not _cors:
+    _cors = ["*"]
+    if IS_PROD:
+        logging.getLogger("greencycle").warning("[config] 生产环境未设置 GC_CORS_ORIGINS，CORS 将放行所有来源")
+# 是否写入演示数据（演示账号 / 示例订单）。开发默认开启，生产默认关闭；基础数据（品类/商品/资讯/成就）始终写入
+SEED_DEMO = os.environ.get("GC_SEED_DEMO", "0" if IS_PROD else "1") == "1"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors,
+    allow_credentials="*" not in _cors,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -129,8 +144,11 @@ def _get_user_or_404(conn, user_id: str):
 
 @app.on_event("startup")
 def on_startup():
+    if IS_PROD and JWT_SECRET_IS_DEFAULT:
+        raise RuntimeError("GC_ENV=production 但未设置 GC_JWT_SECRET，拒绝启动。请执行：export GC_JWT_SECRET=\"$(openssl rand -hex 32)\"")
     init_db()
-    seed_if_empty()
+    seed_if_empty(demo=SEED_DEMO)
+    logging.getLogger("greencycle").info("[startup] env=%s seed_demo=%s cors=%s db=%s", GC_ENV, SEED_DEMO, _cors, DB_PATH)
 
 
 @app.get("/")
@@ -336,6 +354,56 @@ def delete_address(address_id: str, request: Request):
             raise HTTPException(403, "无权删除他人地址")
         conn.execute("DELETE FROM addresses WHERE id=?", (address_id,))
         return _ok(True)
+
+
+# ---------------- 账号注销（Google Play 政策要求：应用内可发起删除账号） ----------------
+@app.post("/api/account/delete")
+def delete_account(req: DeleteAccountRequest, request: Request):
+    """
+    注销流程：校验密码 → 检查未完结订单 / 待审核提现 → 匿名化个人信息（手机号、昵称、头像、地址、设备 token、
+    通知、位置）→ 账号置为 deleted 并使 token 失效。订单 / 积分 / 钱包流水保留匿名记录以满足财务审计。
+    """
+    me = current_user(request)
+    if me["id"] != req.user_id and me["role"] != "admin":
+        raise HTTPException(403, "无权注销他人账号")
+    with db_cursor() as conn:
+        u = conn.execute("SELECT * FROM users WHERE id=?", (req.user_id,)).fetchone()
+        if not u:
+            raise HTTPException(404, "用户不存在")
+        if u["role"] == "admin" and me["id"] == req.user_id:
+            raise HTTPException(400, "管理员账号不能自助注销，请由其他管理员处理")
+        if me["id"] == req.user_id and not verify_password(req.password, u["password"]):
+            raise HTTPException(400, "密码错误")
+        active = conn.execute(
+            "SELECT COUNT(*) FROM orders WHERE (user_id=? OR recycler_id=?) AND status IN ('pending','accepted','in_progress')",
+            (req.user_id, req.user_id)).fetchone()[0]
+        if active:
+            raise HTTPException(400, f"还有 {active} 个进行中的订单，请先完成或取消后再注销")
+        pend_wd = conn.execute(
+            "SELECT COUNT(*) FROM withdrawals WHERE recycler_id=? AND status='pending'", (req.user_id,)).fetchone()[0]
+        if pend_wd:
+            raise HTTPException(400, "还有待审核的提现申请，请等待处理完成后再注销")
+        if u["role"] == "recycler":
+            bal = conn.execute(
+                "SELECT COALESCE(SUM(amount),0) FROM wallet_records WHERE recycler_id=?",
+                (req.user_id,)).fetchone()[0] or 0
+            if bal >= 10:
+                raise HTTPException(400, f"钱包仍有 ¥{bal:.2f} 可提现余额，请先提现后再注销")
+
+        anon = f"已注销用户_{req.user_id[-4:]}"
+        now = _now()
+        conn.execute(
+            """UPDATE users SET phone=?, password=?, nickname=?, avatar='', status='deleted', online=0,
+               deleted_at=?, delete_reason=? WHERE id=?""",
+            (f"deleted_{uuid.uuid4().hex[:12]}", hash_password(uuid.uuid4().hex), anon, now, (req.reason or "")[:200], req.user_id))
+        conn.execute("DELETE FROM addresses WHERE user_id=?", (req.user_id,))
+        conn.execute("DELETE FROM device_tokens WHERE user_id=?", (req.user_id,))
+        conn.execute("DELETE FROM notifications WHERE user_id=?", (req.user_id,))
+        conn.execute("DELETE FROM recycler_locations WHERE recycler_id=?", (req.user_id,))
+        # 订单中的联系信息脱敏
+        conn.execute("UPDATE orders SET contact_name=?, contact_phone='', address_text='（已注销用户）' WHERE user_id=?", (anon, req.user_id))
+        _notify_admins(conn, "system", "用户注销账号", f"{anon}（{u['role']}）已注销账号", req.user_id)
+    return _ok({"deleted": True, "user_id": req.user_id, "deleted_at": now})
 
 
 # ---------------- 订单 ----------------

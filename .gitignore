@@ -69,3 +69,7 @@ android/*.keystore
 local.properties
 .env
 debug.keystore
+
+# 后端生产环境变量（含密钥）
+backend/.env
+backend/backups/

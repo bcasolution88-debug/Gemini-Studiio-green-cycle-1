@@ -20,6 +20,15 @@ class AppLocalizations {
   // ---- 运行时文案翻译表（中文原文 → English）----
   // 用法：context.tr('中文')；未收录的文案原样返回，保证中文环境零风险。
   static const Map<String, String> _zh2en = {
+    '注销账号': 'Delete account',
+    '匿名化个人信息并永久关闭账号': 'Anonymise your data and close the account',
+    '隐私政策': 'Privacy policy',
+    '了解我们如何保护您的数据': 'How we protect your data',
+    '无法打开链接': 'Cannot open link',
+    '注销后将立即匿名化您的手机号、昵称、头像、地址与设备信息，订单与积分记录以匿名形式保留。此操作不可撤销。': 'Your phone, nickname, avatar, addresses and device info will be anonymised immediately; orders and points are kept anonymously. This cannot be undone.',
+    '输入登录密码确认': 'Enter your password to confirm',
+    '确认注销': 'Delete',
+    '账号已注销，感谢您的使用': 'Account deleted. Thank you for using Green Cycle',
     '，辛苦了': ', thanks for your work',
     '上门时间：': 'Pickup time: ',
     '下载不可用，': 'Download unavailable, ',

@@ -1,4 +1,6 @@
 """初始化示例数据"""
+import logging
+import os
 import uuid
 from datetime import datetime, timedelta
 
@@ -74,10 +76,33 @@ EXTRA_USERS = [
 ]
 
 
-def seed_if_empty():
+def _seed_bootstrap_admin(conn):
+    """生产环境：不写演示账号，仅按环境变量创建一个初始管理员（密码哈希存储）。"""
+    from .auth import hash_password
+    phone = os.environ.get("GC_ADMIN_PHONE", "").strip()
+    password = os.environ.get("GC_ADMIN_PASSWORD", "").strip()
+    if not phone or not password:
+        logging.getLogger("greencycle").warning(
+            "[seed] 未设置 GC_ADMIN_PHONE / GC_ADMIN_PASSWORD，未创建初始管理员；可稍后通过环境变量重启创建")
+        return
+    if conn.execute("SELECT 1 FROM users WHERE phone=?", (phone,)).fetchone():
+        return
+    conn.execute(
+        "INSERT INTO users (id,phone,password,nickname,avatar,role,status,level,points,total_points,total_weight,total_carbon,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (ADMIN_ID, phone, hash_password(password), os.environ.get("GC_ADMIN_NAME", "平台管理员"), "",
+         "admin", "active", 1, 0, 0, 0, 0, _now(0)),
+    )
+    logging.getLogger("greencycle").info("[seed] 已创建初始管理员 %s", phone)
+
+
+def seed_if_empty(demo: bool = True):
+    """首次启动写入基础数据；demo=True 追加演示账号/地址/历史订单/通知等。"""
     with db_cursor() as conn:
         cnt = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
         if cnt > 0:
+            # 生产库已初始化：仍允许后补初始管理员（例如首次忘记设置环境变量）
+            if not demo and conn.execute("SELECT COUNT(*) FROM users WHERE role='admin'").fetchone()[0] == 0:
+                _seed_bootstrap_admin(conn)
             return
 
         conn.executemany(
@@ -86,6 +111,10 @@ def seed_if_empty():
         conn.executemany("INSERT INTO products VALUES (?,?,?,?,?,?,?,?,?)", PRODUCTS)
         conn.executemany("INSERT INTO articles VALUES (?,?,?,?,?,?,?,?,?,?)", ARTICLES)
         conn.executemany("INSERT INTO achievements VALUES (?,?,?,?,?,?)", ACHIEVEMENTS)
+
+        if not demo:
+            _seed_bootstrap_admin(conn)
+            return
 
         # 演示用户 / 回收员 / 管理员
         conn.execute(

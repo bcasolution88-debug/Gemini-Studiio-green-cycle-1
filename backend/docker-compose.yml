@@ -1,0 +1,21 @@
+# 开发 / 内网联调：http://localhost:8000，带演示数据，代码热更新
+services:
+  api:
+    build: .
+    image: greencycle-api:dev
+    container_name: greencycle-api-dev
+    ports:
+      - "8000:8000"
+    environment:
+      GC_ENV: development
+      GC_SEED_DEMO: "1"
+      GC_JWT_SECRET: dev-only-secret-not-for-production
+    volumes:
+      - ./app:/app/app:ro            # 代码热更新
+      - gc_dev_data:/data
+    command: >
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    restart: unless-stopped
+
+volumes:
+  gc_dev_data:

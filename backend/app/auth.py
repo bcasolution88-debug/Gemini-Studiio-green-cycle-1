@@ -9,7 +9,9 @@ import jwt
 from fastapi import HTTPException, Request
 
 # 生产环境务必通过环境变量设置强随机密钥：export GC_JWT_SECRET="$(openssl rand -hex 32)"
-JWT_SECRET = os.environ.get("GC_JWT_SECRET", "green-cycle-dev-secret-change-me")
+_DEFAULT_SECRET = "green-cycle-dev-secret-change-me"
+JWT_SECRET = os.environ.get("GC_JWT_SECRET", _DEFAULT_SECRET)
+JWT_SECRET_IS_DEFAULT = JWT_SECRET == _DEFAULT_SECRET
 JWT_ALG = "HS256"
 TOKEN_TTL_DAYS = int(os.environ.get("GC_TOKEN_TTL_DAYS", "30"))
 
@@ -116,6 +118,8 @@ async def auth_guard(request: Request):
         row = conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
         if not row:
             raise HTTPException(401, "账号不存在，请重新登录")
+        if row["status"] == "deleted":
+            raise HTTPException(401, "账号已注销")
         if row["status"] == "disabled":
             raise HTTPException(403, "账号已被禁用，请联系管理员")
         me = dict(row)

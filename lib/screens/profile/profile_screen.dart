@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/push_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
-import '../../main.dart' show openNotificationTarget;
+import '../../main.dart' show openNotificationTarget, rootNavigatorKey;
 import '../../providers/locale_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../notifications/notifications_screen.dart';
@@ -85,6 +87,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     if (ok == true && mounted) context.read<AppProvider>().logout();
+  }
+
+  Future<void> _openPrivacy() async {
+    final uri = Uri.parse(ApiService.instance.privacyPolicyUrl);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) showToast(context, context.tr('无法打开链接'), error: true);
+    }
+  }
+
+  /// 注销账号：说明 → 输入密码确认 → 调用接口 → 清理本地会话
+  Future<void> _deleteAccount() async {
+    final app = context.read<AppProvider>();
+    final uid = app.user?.id;
+    if (uid == null) return;
+    final pwdCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(context.tr('注销账号')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(context.tr('注销后将立即匿名化您的手机号、昵称、头像、地址与设备信息，订单与积分记录以匿名形式保留。此操作不可撤销。'),
+                style: const TextStyle(fontSize: 13, height: 1.5, color: AppColors.textGrey)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pwdCtrl,
+              obscureText: true,
+              autofocus: true,
+              decoration: InputDecoration(labelText: context.tr('输入登录密码确认'), prefixIcon: const Icon(Icons.lock_outline_rounded)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.tr('再想想'))),
+          TextButton(
+            onPressed: () => Navigator.pop(c, pwdCtrl.text.trim().isNotEmpty),
+            child: Text(context.tr('确认注销'), style: const TextStyle(color: AppColors.moneyText, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final doneMsg = context.tr('账号已注销，感谢您的使用');
+    try {
+      await PushService.instance.unregister();
+      await ApiService.instance.deleteAccount(uid, pwdCtrl.text.trim());
+      await app.logout();
+      // 已登出，当前页面即将被替换：用根导航上下文弹提示
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = rootNavigatorKey.currentContext;
+        if (ctx != null && ctx.mounted) showToast(ctx, doneMsg);
+      });
+    } catch (e) {
+      if (mounted) showToast(context, e.toString().replaceFirst('Exception: ', ''), error: true);
+    }
   }
 
   @override
@@ -236,8 +295,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         context.watch<LocaleProvider>().isZh ? '简体中文 · 点击切换 English' : 'English · Tap to switch 中文',
                         () => context.read<LocaleProvider>().toggle()),
                     _menu(Icons.dns_rounded, AppColors.blue, context.tr('后端服务设置'), context.tr('切换 API 地址'),
-                        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
-                        last: true),
+                        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServerSettingsScreen()))),
+                    _menu(Icons.privacy_tip_rounded, AppColors.forest, context.tr('隐私政策'), context.tr('了解我们如何保护您的数据'),
+                        _openPrivacy),
+                    _menu(Icons.person_off_rounded, AppColors.coral, context.tr('注销账号'), context.tr('匿名化个人信息并永久关闭账号'),
+                        _deleteAccount, last: true),
                   ],
                 ),
               ),
@@ -258,7 +320,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 10),
             const Center(
-              child: Text('绿循环 Green Cycle v1.0.0',
+              child: Text('绿循环 Green Cycle v$kAppVersion',
                   style: TextStyle(color: AppColors.textGrey, fontSize: 11)),
             ),
           ],
