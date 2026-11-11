@@ -53,6 +53,8 @@
 
 ## 目录结构
 
+> 仓库根目录下的 `app/`、`build.gradle.kts`、`settings.gradle.kts`、`gradle/`、`metadata.json`、`.env.example` 为 **Google AI Studio 生成的原生 Android（Kotlin / Compose）独立工程**（包名 `com.aistudio.greencycle.recycle`），与本 Flutter 项目相互独立、互不依赖。Flutter 工程使用 `android/` 目录，后端位于 `backend/`。
+
 ```
 .
 ├── lib/
