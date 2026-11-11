@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../providers/notification_provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -60,7 +61,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Text('消息中心${np.unread > 0 ? ' (${np.unread})' : ''}'),
         actions: [
           if (np.unread > 0)
-            TextButton(onPressed: np.markAllRead, child: const Text('全部已读')),
+            TextButton(onPressed: np.markAllRead, child: Text(context.tr('全部已读'))),
         ],
       ),
       body: Column(
@@ -71,7 +72,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               children: [
-                ('all', '全部'), ('order', '订单'), ('points', '积分'), ('wallet', '钱包'), ('system', '系统'),
+                ('all', context.tr('全部')), ('order', context.tr('订单')), ('points', context.tr('积分')), ('wallet', context.tr('钱包')), ('system', context.tr('系统')),
               ].map((f) {
                 final sel = f.$1 == _filter;
                 return Padding(
@@ -91,7 +92,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             child: np.loading && np.items.isEmpty
                 ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
                 : list.isEmpty
-                    ? const EmptyState(icon: Icons.notifications_off_rounded, title: '暂无消息')
+                    ? EmptyState(icon: Icons.notifications_off_rounded, title: context.tr('一切安好，暂无新消息'))
                     : RefreshIndicator(
                         color: AppColors.forest,
                         onRefresh: np.load,
@@ -312,7 +313,7 @@ class _BannerWidgetState extends State<_BannerWidget> with SingleTickerProviderS
                                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis)),
-                          const Text('刚刚', style: TextStyle(fontSize: 10, color: AppColors.textGrey)),
+                          Text(context.tr('刚刚'), style: TextStyle(fontSize: 10, color: AppColors.textGrey)),
                         ]),
                         const SizedBox(height: 2),
                         Text(widget.n.body,

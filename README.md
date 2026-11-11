@@ -34,7 +34,11 @@
 ### 跨端能力
 - **消息通知**：订单状态变更（接单/出发/完成/取消/指派）、积分到账、回收款支付、提现审核结果自动生成通知；前端 15 秒轮询，铃铛角标 + 顶部横幅提醒，点击直达订单
 - **地图与定位**：OpenStreetMap 地图，回收员开启位置共享后（GPS，Web/无权限时自动退化为模拟行进），用户端订单详情实时显示回收员位置与距离；一键调起系统地图导航 / 拨号
-- **多语言**：简体中文 / English，「我的」页一键切换并持久化（`lib/l10n/app_localizations.dart`，新增文案只需在两张表各加一行）
+- **多语言**：简体中文 / English，「我的」页一键切换并持久化（`lib/l10n/app_localizations.dart`）。v1.2 起用户端页面全部覆盖：除 `t(key)` 键表外新增 `context.tr('中文原文')` 运行时字典（160+ 条），新增文案只需在 `_zh2en` 加一行；订单/兑换状态等模型文案也在展示处翻译
+- **首次引导 + 空态**：首次启动 3 页引导（本地标记 `onboarding_seen_v1`），全部列表空态给出"下一步动作"提示而非仅"暂无数据"
+- **首页本周战报**：首页顶部卡片按状态切换——有进行中订单显示订单进度；否则显示本周完成单数 / 重量 / 减碳 / 积分（≈ 种树 · 少开车 km）；无记录时显示首单引导
+- **后台桌面宽屏**：管理后台在宽度 ≥ 1000px 时自动切换为左侧导航栏 + 1180px 内容区 + 表格布局（订单 `DataTable`、KPI 4 列），窄屏仍为底部导航
+- **推送就绪（FCM v1 抽象层）**：见下文「推送」一节
 
 ### 回收员端
 - **接单大厅**：今日业绩概览、待接订单列表（品类/重量/时间/地址）、一键抢单
@@ -63,6 +67,27 @@
   ```
 - **静态资源**：商品图 / 文章封面 / 头像存放于 `backend/static/`，数据库保存相对路径（`/static/...`），前端按当前后端地址自动拼接，不依赖外部图床。
 
+## 推送（v1.2.0+，FCM 就绪）
+
+推送分三层，**今天即可编译发布，接入 Firebase 时只改一处**：
+
+| 层 | 位置 | 现状 |
+|---|---|---|
+| 设备 token 注册 | `POST /api/push/register` / `unregister` / `GET /api/push/devices`，表 `device_tokens`（UPSERT，换账号自动迁移） | ✅ 已启用 |
+| 发送器 | `backend/app/push.py`：`_notify()` 写站内信后调用 `push_to_user()`；FCM HTTP v1 发送、失效 token 自动清理、后台线程 | ✅ 无凭据时 dry-run 仅打日志 |
+| 客户端 | `lib/services/push_service.dart`：`PushTokenSource` 抽象，默认 `LocalDeviceTokenSource`；登录注册 / 退出注销；`_Root` 监听前台恢复立即刷新通知 | ✅ 已启用 |
+
+启用真实 FCM 推送：
+
+```bash
+pip install google-auth
+export GC_FCM_SERVICE_ACCOUNT=/path/to/firebase-service-account.json   # 必需
+export GC_FCM_PROJECT_ID=your-project-id                              # 可选，默认读 JSON 中 project_id
+export GC_PUSH_DRY_RUN=1                                              # 可选，联调时只打日志
+```
+
+客户端接入 Firebase 时：添加 `firebase_core` / `firebase_messaging` 依赖与 `google-services.json`，实现一个 `PushTokenSource`（`getToken → FirebaseMessaging.instance.getToken()`，`onTokenRefresh → FirebaseMessaging.instance.onTokenRefresh`），在 `main()` 中 `PushService.instance.tokenSource = FcmTokenSource();` 即可。`GET /api/health` 的 `push` 字段可查看当前通道状态。
+
 ## 目录结构
 
 > 仓库根目录下的 `app/`、`build.gradle.kts`、`settings.gradle.kts`、`gradle/`、`metadata.json`、`.env.example` 为 **Google AI Studio 生成的原生 Android（Kotlin / Compose）独立工程**（包名 `com.aistudio.greencycle.recycle`），与本 Flutter 项目相互独立、互不依赖。Flutter 工程使用 `android/` 目录，后端位于 `backend/`。
@@ -78,6 +103,7 @@
 │   ├── theme/app_theme.dart      # 多彩插画风格主题
 │   ├── models/models.dart        # 数据模型（安全解析）
 │   ├── services/api_service.dart # REST API 封装
+│   ├── services/push_service.dart # 推送抽象层（FCM 就绪）
 │   ├── providers/app_provider.dart
 │   ├── widgets/common_widgets.dart
 │   └── screens/
@@ -174,7 +200,7 @@ cd backend && rm -f green_cycle.db && uvicorn app.main:app --port 8000 &
 python3 backend/tests/test_e2e.py
 ```
 
-`test_e2e.py` 覆盖：注册登录与角色 → 预约（通知触发）→ 抢单/出发/位置 → 称重结算（金额/积分/减碳/服务费精确校验）→ 确认付款 → 提现冻结/驳回退款/打款 → 商城兑换发货 → 管理后台指派/取消/权限/禁用/调价/概览/地图/6 类导出 → 通知已读删除 → 统计/签到/首页，共约 70 项断言。
+`test_e2e.py` 覆盖：注册登录与角色 → 预约（通知触发）→ 抢单/出发/位置 → 称重结算（金额/积分/减碳/服务费精确校验）→ 确认付款 → 提现冻结/驳回退款/打款 → 商城兑换发货 → 管理后台指派/取消/权限/禁用/调价/概览/地图/6 类导出 → 通知已读删除 → 统计/签到/首页，共 86 项断言（含 JWT 鉴权、接单开关/评价、推送 token 注册）。
 
 ## 后端 API 一览
 

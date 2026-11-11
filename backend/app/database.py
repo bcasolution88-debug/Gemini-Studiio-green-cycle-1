@@ -153,6 +153,16 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS device_tokens (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT 'android',
+    app_version TEXT,
+    locale TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id);
+
 CREATE TABLE IF NOT EXISTS recycler_locations (
     recycler_id TEXT PRIMARY KEY,
     lat REAL NOT NULL,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/models.dart';
 import '../../services/api_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import 'article_detail_screen.dart';
@@ -63,10 +64,10 @@ class _NewsScreenState extends State<NewsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('环保资讯',
+                      Text(context.tr('环保资讯'),
                           style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 4),
-                      Text('分类知识 · 环保科普 · 绿色生活',
+                      Text(context.tr('分类知识 · 环保科普 · 绿色生活'),
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
                     ],
                   ),
@@ -101,7 +102,7 @@ class _NewsScreenState extends State<NewsScreen> {
                 : _error != null
                     ? ErrorState(message: _error!, onRetry: _load)
                     : list.isEmpty
-                        ? const EmptyState(icon: Icons.article_rounded, title: '暂无资讯')
+                        ? EmptyState(icon: Icons.article_rounded, title: context.tr('暂无资讯'))
                         : RefreshIndicator(
                             color: AppColors.forest,
                             onRefresh: _load,

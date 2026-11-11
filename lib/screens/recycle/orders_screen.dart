@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import 'create_order_screen.dart';
@@ -89,7 +90,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
               children: [
                 Row(
                   children: [
-                    const Text('我的订单',
+                    Text(context.tr('我的订单'),
                         style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
                     const Spacer(),
                     IconButton(
@@ -125,12 +126,12 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                           if (list.isEmpty) {
                             return EmptyState(
                               icon: Icons.inbox_rounded,
-                              title: '暂无订单',
-                              subtitle: '预约上门回收，赚取碳积分',
+                              title: context.tr('还没有回收订单'),
+                              subtitle: context.tr('预约第一单，立得 50 积分 + 减碳报告'),
                               action: ElevatedButton(
                                 onPressed: () => Navigator.push(context,
                                     MaterialPageRoute(builder: (_) => const CreateOrderScreen())),
-                                child: const Text('去预约'),
+                                child: Text(context.tr('去预约')),
                               ),
                             );
                           }

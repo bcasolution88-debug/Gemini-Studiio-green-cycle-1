@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import 'address_screen.dart';
@@ -117,11 +118,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   Future<void> _submit() async {
     if (_weights.isEmpty) {
-      showToast(context, '请至少选择一种回收品类', error: true);
+      showToast(context, context.tr('请至少选择一种回收品类'), error: true);
       return;
     }
     if (_address == null) {
-      showToast(context, '请选择上门地址', error: true);
+      showToast(context, context.tr('请选择上门地址'), error: true);
       return;
     }
     setState(() => _submitting = true);
@@ -152,7 +153,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('预约上门回收')),
+      appBar: AppBar(title: Text(context.tr('预约上门回收'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
           : _error != null
@@ -163,20 +164,20 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
                         children: [
-                          _title('选择回收品类', '可多选，拖动滑块设置预估重量'),
+                          _title(context.tr('选择回收品类'), context.tr('可多选，拖动滑块设置预估重量')),
                           _categoryGrid(),
                           const SizedBox(height: 20),
-                          _title('上门地址', null),
+                          _title(context.tr('上门地址'), null),
                           _addressCard(),
                           const SizedBox(height: 20),
-                          _title('上门时间', null),
+                          _title(context.tr('上门时间'), null),
                           _timeCard(),
                           const SizedBox(height: 20),
-                          _title('备注', '选填'),
+                          _title(context.tr('备注'), context.tr('选填')),
                           TextField(
                             controller: _remark,
                             maxLines: 2,
-                            decoration: const InputDecoration(hintText: '例如：请提前电话联系、物品在门口等'),
+                            decoration: InputDecoration(hintText: context.tr('例如：请提前电话联系、物品在门口等')),
                           ),
                         ],
                       ),
@@ -304,7 +305,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: _address == null
-                ? const Text('请选择或新增上门地址', style: TextStyle(color: AppColors.textGrey))
+                ? Text(context.tr('请选择或新增上门地址'), style: TextStyle(color: AppColors.textGrey))
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -338,7 +339,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 Text(DateFormat('yyyy年MM月dd日 EEEE', 'zh_CN').format(_date),
                     style: const TextStyle(fontWeight: FontWeight.w700)),
                 const Spacer(),
-                const Text('更改', style: TextStyle(color: AppColors.forest, fontSize: 13)),
+                Text(context.tr('更改'), style: TextStyle(color: AppColors.forest, fontSize: 13)),
               ],
             ),
           ),
@@ -380,7 +381,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    const Text('预估 ', style: TextStyle(fontSize: 12, color: AppColors.textGrey)),
+                    Text(context.tr('预估 '), style: TextStyle(fontSize: 12, color: AppColors.textGrey)),
                     Text('¥${_estAmount.toStringAsFixed(1)}',
                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.moneyText)),
                     const SizedBox(width: 10),
@@ -398,7 +399,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                 onPressed: _submitting ? null : _submit,
                 child: _submitting
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('确认预约'),
+                    : Text(context.tr('确认预约')),
               ),
             ),
           ],

@@ -295,6 +295,20 @@ extension RoleApi on ApiService {
       User.fromJson(Map<String, dynamic>.from(
           await _post('/api/recycler/online', {'recycler_id': recyclerId, 'online': online})));
 
+  // ---------------- 推送：设备 token ----------------
+  Future<Map<String, dynamic>> registerPushToken(String userId, String token,
+          {String platform = 'android', String? appVersion, String? locale}) async =>
+      Map<String, dynamic>.from(await _post('/api/push/register', {
+        'user_id': userId,
+        'token': token,
+        'platform': platform,
+        if (appVersion != null) 'app_version': appVersion,
+        if (locale != null) 'locale': locale,
+      }));
+
+  Future<void> unregisterPushToken(String userId, String token) =>
+      _post('/api/push/unregister', {'user_id': userId, 'token': token});
+
   Future<RecyclerStats> recyclerStats(String recyclerId) async => RecyclerStats.fromJson(
       Map<String, dynamic>.from(await _get('/api/recycler/stats', {'recycler_id': recyclerId})));
 

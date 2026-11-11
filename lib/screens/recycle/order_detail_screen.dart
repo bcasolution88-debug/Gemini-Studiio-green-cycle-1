@@ -8,6 +8,7 @@ import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/order_map.dart';
@@ -42,7 +43,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
-      if (widget.justCreated) showToast(context, '预约成功！回收员将尽快接单');
+      if (widget.justCreated) showToast(context, context.tr('预约成功！回收员将尽快接单'));
     });
   }
 
@@ -91,22 +92,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('取消预约'),
-        content: const Text('确定要取消本次上门回收预约吗？'),
+        title: Text(context.tr('取消预约')),
+        content: Text(context.tr('确定要取消本次上门回收预约吗？')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('再想想')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.tr('再想想'))),
           TextButton(
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('确定取消', style: TextStyle(color: AppColors.moneyText))),
+              child: Text(context.tr('确定取消'), style: TextStyle(color: AppColors.moneyText))),
         ],
       ),
     );
-    if (ok != true) return;
-    await _act(() => _api.cancelOrder(widget.orderId), '已取消预约');
+    if (ok != true || !mounted) return;
+    final msg = context.tr('已取消预约');
+    await _act(() => _api.cancelOrder(widget.orderId), msg);
   }
 
   Future<void> _advance() async {
-    await _act(() => _api.advanceOrder(widget.orderId), '订单状态已更新');
+    await _act(() => _api.advanceOrder(widget.orderId), context.tr('订单状态已更新'));
   }
 
   int _rateStars = 5;
@@ -118,7 +120,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final me = context.read<AppProvider>().userId;
     await _act(
       () => _api.rateOrder(widget.orderId, me, _rateStars, tags: _rateTags.toList(), comment: _rateCtrl.text),
-      '感谢评价，+5 积分',
+      context.tr('感谢评价，+5 积分'),
     );
   }
 
@@ -127,7 +129,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       return SoftCard(
         margin: const EdgeInsets.only(bottom: 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('我的评价', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          Text(context.tr('我的评价'), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 8),
           Row(children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 22, color: i < (o.rating ?? 0) ? AppColors.amber : AppColors.divider))),
           if (o.ratingTags.isNotEmpty) ...[
@@ -145,9 +147,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Text('评价回收员', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          Text(context.tr('评价回收员'), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const Spacer(),
-          const StatusChip(text: '评价 +5 积分', color: AppColors.amber),
+          StatusChip(text: context.tr('评价 +5 积分'), color: AppColors.amber),
         ]),
         const SizedBox(height: 10),
         Row(
@@ -160,7 +162,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
           )),
         ),
-        Center(child: Text(['很差', '较差', '一般', '满意', '非常满意'][_rateStars - 1],
+        Center(child: Text([context.tr('很差'), context.tr('较差'), context.tr('一般'), context.tr('满意'), context.tr('非常满意')][_rateStars - 1],
             style: const TextStyle(fontSize: 12, color: AppColors.textGrey, fontWeight: FontWeight.w600))),
         const SizedBox(height: 10),
         Wrap(
@@ -179,7 +181,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         TextField(
           controller: _rateCtrl,
           maxLength: 100,
-          decoration: const InputDecoration(hintText: '还有什么想说的（选填）', counterText: '', isDense: true),
+          decoration: InputDecoration(hintText: context.tr('还有什么想说的（选填）'), counterText: '', isDense: true),
         ),
         const SizedBox(height: 10),
         SizedBox(
@@ -188,7 +190,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           child: ElevatedButton.icon(
             onPressed: _acting ? null : _submitRating,
             icon: const Icon(Icons.rate_review_rounded, size: 18),
-            label: const Text('提交评价'),
+            label: Text(context.tr('提交评价')),
           ),
         ),
       ]),
@@ -218,7 +220,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('订单详情')),
+      appBar: AppBar(title: Text(context.tr('订单详情'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
           : _error != null
@@ -247,7 +249,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(o.statusText,
+                    Text(context.tr(o.statusText),
                         style: const TextStyle(
                             color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 4),
@@ -273,7 +275,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       Row(children: [
                         const Icon(Icons.map_rounded, size: 18, color: AppColors.forest),
                         const SizedBox(width: 6),
-                        Text(o.recyclerLocation != null ? '回收员实时位置' : '上门地址',
+                        Text(o.recyclerLocation != null ? '回收员实时位置' : context.tr('上门地址'),
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                         const Spacer(),
                         if (o.recyclerLocation != null)
@@ -316,7 +318,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             const SizedBox(height: 2),
                             Row(children: [
                               const Icon(Icons.star_rounded, size: 14, color: AppColors.amber),
-                              Text(o.isRated ? ' 您已评价 ${o.rating} 星' : ' 认证回收员 · 已实名',
+                              Text(o.isRated ? ' 您已评价 ${o.rating} 星' : context.tr(' 认证回收员 · 已实名'),
                                   style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
                             ]),
                           ],
@@ -340,7 +342,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('回收明细', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    Text(context.tr('回收明细'), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                     const SizedBox(height: 12),
                     ...o.items.map((it) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
@@ -361,11 +363,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         )),
                     if (o.status == 'completed') ...[
                       const Divider(height: 20),
-                      _kv('实际总重', '${o.actualWeight?.toStringAsFixed(1) ?? '-'} kg'),
-                      _kv('回收金额', '¥${o.amount?.toStringAsFixed(2) ?? '-'}', color: AppColors.moneyText),
-                      _kv('获得积分', '+${o.pointsEarned}', color: AppColors.pointsText),
-                      _kv('减碳量', '${o.carbonSaved.toStringAsFixed(2)} kg CO₂', color: AppColors.forest),
-                      _kv('回收款', o.paid ? '已通过${o.payMethodText}支付' : '待回收员支付',
+                      _kv(context.tr('实际总重'), '${o.actualWeight?.toStringAsFixed(1) ?? '-'} kg'),
+                      _kv(context.tr('回收金额'), '¥${o.amount?.toStringAsFixed(2) ?? '-'}', color: AppColors.moneyText),
+                      _kv(context.tr('获得积分'), '+${o.pointsEarned}', color: AppColors.pointsText),
+                      _kv(context.tr('减碳量'), '${o.carbonSaved.toStringAsFixed(2)} kg CO₂', color: AppColors.forest),
+                      _kv(context.tr('回收款'), o.paid ? '已通过${o.payMethodText}支付' : context.tr('待回收员支付'),
                           color: o.paid ? AppColors.forest : AppColors.orangeText),
                     ],
                   ],
@@ -378,14 +380,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('预约信息', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    Text(context.tr('预约信息'), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                     const SizedBox(height: 12),
-                    _kv('订单编号', o.orderNo),
-                    _kv('上门时间', o.appointmentTime),
-                    _kv('联系人', '${o.contactName} ${o.contactPhone}'),
-                    _kv('上门地址', o.addressText),
-                    if (o.remark.isNotEmpty) _kv('备注', o.remark),
-                    _kv('下单时间', o.createdAt),
+                    _kv(context.tr('订单编号'), o.orderNo),
+                    _kv(context.tr('上门时间'), o.appointmentTime),
+                    _kv(context.tr('联系人'), '${o.contactName} ${o.contactPhone}'),
+                    _kv(context.tr('上门地址'), o.addressText),
+                    if (o.remark.isNotEmpty) _kv(context.tr('备注'), o.remark),
+                    _kv(context.tr('下单时间'), o.createdAt),
                   ],
                 ),
               ),
@@ -493,7 +495,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
                   ),
-                  child: const Text('取消预约'),
+                  child: Text(context.tr('取消预约')),
                 ),
               ),
             if (o.canCancel) const SizedBox(width: 12),

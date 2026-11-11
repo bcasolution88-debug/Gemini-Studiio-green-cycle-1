@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../main.dart' show openNotificationTarget;
 import '../../providers/locale_provider.dart';
@@ -51,18 +52,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final v = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('修改昵称'),
+        title: Text(context.tr('修改昵称')),
         content: TextField(controller: ctrl, maxLength: 20, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
-          ElevatedButton(onPressed: () => Navigator.pop(c, ctrl.text.trim()), child: const Text('保存')),
+          TextButton(onPressed: () => Navigator.pop(c), child: Text(context.tr('取消'))),
+          ElevatedButton(onPressed: () => Navigator.pop(c, ctrl.text.trim()), child: Text(context.tr('保存'))),
         ],
       ),
     );
     if (v != null && v.isNotEmpty) {
       try {
         await app.updateProfile(nickname: v);
-        if (mounted) showToast(context, '昵称已更新');
+        if (mounted) showToast(context, context.tr('昵称已更新'));
       } catch (e) {
         if (mounted) showToast(context, e.toString(), error: true);
       }
@@ -73,13 +74,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出当前账号吗？'),
+        title: Text(context.tr('退出登录')),
+        content: Text(context.tr('确定要退出当前账号吗？')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.tr('取消'))),
           TextButton(
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('退出', style: TextStyle(color: AppColors.moneyText))),
+              child: Text(context.tr('退出'), style: TextStyle(color: AppColors.moneyText))),
         ],
       ),
     );
@@ -126,7 +127,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Row(
                         children: [
-                          const Text('我的',
+                          Text(context.tr('我的'),
                               style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
                           const Spacer(),
                           IconButton(
@@ -191,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // 成就
             SectionHeader(
-              title: '环保成就',
+              title: context.tr('环保成就'),
               action: _stats == null ? null : '${_stats!.achievements.where((a) => a.unlocked).length}/${_stats!.achievements.length}',
             ),
             if (_loading && _stats == null)
@@ -212,28 +213,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
             // 菜单
-            const SectionHeader(title: '我的服务'),
+            SectionHeader(title: context.tr('我的服务')),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SoftCard(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
                   children: [
-                    _menu(Icons.bar_chart_rounded, AppColors.forest, '减碳报告', '查看回收趋势与环保贡献',
+                    _menu(Icons.bar_chart_rounded, AppColors.forest, context.tr('减碳报告'), context.tr('查看回收趋势与环保贡献'),
                         () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CarbonReportScreen()))),
-                    _menu(Icons.monetization_on_rounded, AppColors.amber, '积分明细', '收支记录一目了然',
+                    _menu(Icons.monetization_on_rounded, AppColors.amber, context.tr('积分明细'), context.tr('收支记录一目了然'),
                         () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PointsHistoryScreen()))),
-                    _menu(Icons.card_giftcard_rounded, AppColors.pink, '兑换记录', '查看兑换码与发货状态',
+                    _menu(Icons.card_giftcard_rounded, AppColors.pink, context.tr('兑换记录'), context.tr('查看兑换码与发货状态'),
                         () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RedemptionsScreen()))),
-                    _menu(Icons.location_on_rounded, AppColors.coral, '地址管理', '上门回收地址',
+                    _menu(Icons.location_on_rounded, AppColors.coral, context.tr('地址管理'), context.tr('上门回收地址'),
                         () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressScreen()))),
-                    _menu(Icons.notifications_rounded, AppColors.teal, '消息中心', '订单进度、积分到账提醒',
+                    _menu(Icons.notifications_rounded, AppColors.teal, context.tr('消息中心'), context.tr('订单进度、积分到账提醒'),
                         () => Navigator.push(context,
                             MaterialPageRoute(builder: (_) => NotificationsScreen(onOpen: (n) => openNotificationTarget(context, n))))),
                     _menu(Icons.translate_rounded, AppColors.purple, '语言 / Language',
                         context.watch<LocaleProvider>().isZh ? '简体中文 · 点击切换 English' : 'English · Tap to switch 中文',
                         () => context.read<LocaleProvider>().toggle()),
-                    _menu(Icons.dns_rounded, AppColors.blue, '后端服务设置', '切换 API 地址',
+                    _menu(Icons.dns_rounded, AppColors.blue, context.tr('后端服务设置'), context.tr('切换 API 地址'),
                         () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
                         last: true),
                   ],
@@ -251,7 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
                 ),
-                child: const Text('退出登录', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: Text(context.tr('退出登录'), style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(height: 10),
@@ -275,13 +276,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          _stat('${u.points}', '可用积分', AppColors.amber),
+          _stat('${u.points}', context.tr('可用积分'), AppColors.amber),
           _divider(),
-          _stat(u.totalWeight.toStringAsFixed(1), '回收 kg', AppColors.blue),
+          _stat(u.totalWeight.toStringAsFixed(1), context.tr('回收 kg'), AppColors.blue),
           _divider(),
-          _stat(u.totalCarbon.toStringAsFixed(1), '减碳 kg', AppColors.forest),
+          _stat(u.totalCarbon.toStringAsFixed(1), context.tr('减碳 kg'), AppColors.forest),
           _divider(),
-          _stat('${_stats?.orderCount ?? '-'}', '回收次数', AppColors.purple),
+          _stat('${_stats?.orderCount ?? '-'}', context.tr('回收次数'), AppColors.purple),
         ],
       ),
     );

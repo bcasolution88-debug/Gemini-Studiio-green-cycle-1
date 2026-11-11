@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../main.dart' show openNotificationTarget;
@@ -31,23 +32,26 @@ class HomeScreen extends StatelessWidget {
                 ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
                 : ListView(children: [
                     const SizedBox(height: 160),
-                    ErrorState(message: app.homeError ?? '暂无数据', onRetry: app.loadHome),
+                    ErrorState(message: app.homeError ?? context.tr('暂无数据'), onRetry: app.loadHome),
                   ]))
             : CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(child: _Header(home: home)),
                   SliverToBoxAdapter(child: _CategoryStrip(categories: home.categories)),
-                  SliverToBoxAdapter(child: _CtaCard(onTap: () => _openCreate(context))),
-                  if (home.activeOrder != null)
-                    SliverToBoxAdapter(child: _ActiveOrder(order: home.activeOrder!)),
+                  // 动态卡：有进行中订单 → 订单进度；否则 → 本周环保成就 + 预约入口
+                  SliverToBoxAdapter(
+                    child: home.activeOrder != null
+                        ? _ActiveOrder(order: home.activeOrder!)
+                        : _WeekCard(week: home.week, onCreate: () => _openCreate(context)),
+                  ),
                   SliverToBoxAdapter(
                     child: SectionHeader(
-                        title: '积分商城热门', action: '更多', onAction: () => onNavigate(2)),
+                        title: context.tr('积分商城热门'), action: context.tr('更多'), onAction: () => onNavigate(2)),
                   ),
                   SliverToBoxAdapter(child: _HotProducts(products: home.hotProducts)),
                   SliverToBoxAdapter(
                     child: SectionHeader(
-                        title: '环保资讯', action: '更多', onAction: () => onNavigate(3)),
+                        title: context.tr('环保资讯'), action: context.tr('更多'), onAction: () => onNavigate(3)),
                   ),
                   SliverList.builder(
                     itemCount: home.news.length,
@@ -203,7 +207,7 @@ class _SignInButton extends StatelessWidget {
             Icon(signed ? Icons.check_rounded : Icons.calendar_today_rounded,
                 size: 14, color: signed ? Colors.white : AppColors.deepGreen),
             const SizedBox(width: 4),
-            Text(signed ? '已签到' : '签到 +10',
+            Text(signed ? '已签到' : context.tr('签到 +10'),
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -243,7 +247,7 @@ class _PointsCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('我的碳积分', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
+                    Text(context.tr('我的碳积分'), style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
                     const SizedBox(height: 2),
                     Text(_fmt(user.points),
                         style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, height: 1.1)),
@@ -313,7 +317,7 @@ class _CategoryStrip extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(title: '回收品类 · 今日价格'),
+          SectionHeader(title: context.tr('回收品类 · 今日价格')),
           SizedBox(
             height: 112,
             child: ListView.separated(
@@ -360,19 +364,21 @@ class _CategoryStrip extends StatelessWidget {
   }
 }
 
-// ---------------- 预约上门回收 CTA ----------------
-class _CtaCard extends StatelessWidget {
-  final VoidCallback onTap;
-  const _CtaCard({required this.onTap});
+// ---------------- 本周环保成就（无进行中订单时） ----------------
+class _WeekCard extends StatelessWidget {
+  final WeekStats week;
+  final VoidCallback onCreate;
+  const _WeekCard({required this.week, required this.onCreate});
 
   @override
   Widget build(BuildContext context) {
+    final hasData = week.orders > 0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: GestureDetector(
-        onTap: onTap,
+        onTap: onCreate,
         child: Container(
-          height: 132,
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.centerLeft,
@@ -385,47 +391,52 @@ class _CtaCard extends StatelessWidget {
           child: Stack(
             children: [
               Positioned(
-                right: -20,
-                bottom: -30,
+                right: -24,
+                bottom: -36,
                 child: Container(
                   width: 140,
                   height: 140,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.10),
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.10), shape: BoxShape.circle),
                 ),
               ),
-              const Positioned(
-                right: 22,
-                top: 22,
-                child: Icon(Icons.electric_moped_rounded, size: 84, color: Colors.white),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('预约上门回收',
-                        style: TextStyle(
-                            color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 4),
-                    Text('回收员 2 小时内上门 · 称重即结算',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12)),
-                    const SizedBox(height: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.eco_rounded, color: AppColors.lime, size: 18),
+                    const SizedBox(width: 6),
+                    Text(hasData ? '本周环保成就' : context.tr('开始你的第一单回收'),
+                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+                    const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: AppColors.sunGradient,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text('立即预约',
-                          style: TextStyle(
-                              color: AppColors.deepGreen, fontWeight: FontWeight.w900, fontSize: 13)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(gradient: AppColors.sunGradient, borderRadius: BorderRadius.circular(20)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.electric_moped_rounded, size: 16, color: AppColors.deepGreen),
+                        const SizedBox(width: 4),
+                        Text(context.tr('立即预约'), style: TextStyle(color: AppColors.deepGreen, fontWeight: FontWeight.w900, fontSize: 13)),
+                      ]),
+                    ),
+                  ]),
+                  const SizedBox(height: 14),
+                  if (hasData)
+                    Row(children: [
+                      _metric('${week.orders}', context.tr('单回收')),
+                      _metric(week.weight.toStringAsFixed(1), context.tr('kg 重量')),
+                      _metric(week.carbon.toStringAsFixed(1), context.tr('kg 减碳')),
+                      _metric('+${week.points}', context.tr('积分')),
+                    ])
+                  else
+                    Text(context.tr('回收员 2 小时内上门 · 称重即结算 · 首单额外 +50 积分'),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 12.5)),
+                  if (hasData) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '≈ 种下 ${week.trees.toStringAsFixed(1)} 棵树 · 少开车 ${week.carKm.toStringAsFixed(0)} km',
+                      style: const TextStyle(color: AppColors.lime, fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                   ],
-                ),
+                ],
               ),
             ],
           ),
@@ -433,6 +444,13 @@ class _CtaCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _metric(String v, String l) => Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(v, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, height: 1.1)),
+          Text(l, style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11)),
+        ]),
+      );
 }
 
 // ---------------- 进行中订单 ----------------
@@ -460,10 +478,10 @@ class _ActiveOrder extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Text('进行中的订单',
+                      Text(context.tr('进行中的订单'),
                           style: TextStyle(fontSize: 12, color: AppColors.textGrey)),
                       const SizedBox(width: 8),
-                      StatusChip(text: order.statusText, color: c),
+                      StatusChip(text: context.tr(order.statusText), color: c),
                     ],
                   ),
                   const SizedBox(height: 4),

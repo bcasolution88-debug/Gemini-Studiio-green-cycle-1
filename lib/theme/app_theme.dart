@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+/// 应用版本（与 pubspec.yaml 保持一致；打包时同步更新）
+const String kAppVersion = '1.2.0';
+
 /// 绿循环 - 多彩插画风格主题
 class AppColors {
   static const Color deepGreen = Color(0xFF1B5E20);

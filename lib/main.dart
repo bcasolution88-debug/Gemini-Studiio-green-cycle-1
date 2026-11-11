@@ -13,7 +13,9 @@ import 'screens/main_shell.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/recycle/order_detail_screen.dart';
 import 'screens/recycler/recycler_shell.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/recycler/recycler_task_detail_screen.dart';
+import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/common_widgets.dart';
 
@@ -68,7 +70,35 @@ class _Root extends StatefulWidget {
   State<_Root> createState() => _RootState();
 }
 
-class _RootState extends State<_Root> {
+class _RootState extends State<_Root> with WidgetsBindingObserver {
+  /// null = 未检查；true = 需要显示引导
+  bool? _needOnboarding;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// 应用回到前台时立即刷新通知（推送就绪：即使没有系统推送，回前台也能秒级同步）
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _trackingUser != null) {
+      context.read<NotificationProvider>().refreshNow();
+    }
+  }
+
+  Future<void> _checkOnboarding() async {
+    final v = await OnboardingScreen.shouldShow();
+    if (mounted) setState(() => _needOnboarding = v);
+  }
+
   String? _trackingUser;
 
   void _syncNotifications(AppProvider app) {
@@ -78,12 +108,15 @@ class _RootState extends State<_Root> {
     _trackingUser = uid;
     if (uid == null) {
       np.stop();
+      PushService.instance.unregister();
     } else {
       np.onNewMessage = (n) {
         final ctx = rootNavigatorKey.currentContext;
         if (ctx != null) showInAppBanner(ctx, n, onTap: () => openNotificationTarget(ctx, n));
       };
       np.start(uid);
+      PushService.instance.register(uid,
+          appVersion: kAppVersion, locale: context.read<LocaleProvider>().locale.languageCode);
     }
   }
 
@@ -105,6 +138,14 @@ class _RootState extends State<_Root> {
     }
     if (u.isAdmin) return const AdminShell();
     if (u.isRecycler) return const RecyclerShell();
+    // 用户端：首次登录显示 3 页引导
+    if (_needOnboarding == null) {
+      _checkOnboarding();
+      return const _Splash();
+    }
+    if (_needOnboarding == true) {
+      return OnboardingScreen(onDone: () => setState(() => _needOnboarding = false));
+    }
     return const MainShell();
   }
 }

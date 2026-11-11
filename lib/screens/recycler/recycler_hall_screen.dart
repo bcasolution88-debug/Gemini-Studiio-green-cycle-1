@@ -311,8 +311,8 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                 hasScrollBody: false,
                 child: EmptyState(
                   icon: Icons.inbox_rounded,
-                  title: '暂无待接订单',
-                  subtitle: '下拉刷新查看最新订单',
+                  title: '附近暂时没有新订单',
+                  subtitle: '保持「接单中」，新单会第一时间提醒您',
                 ),
               )
             else

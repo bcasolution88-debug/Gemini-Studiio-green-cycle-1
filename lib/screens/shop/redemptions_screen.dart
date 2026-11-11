@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
@@ -61,7 +62,7 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
               ? ErrorState(message: _error!, onRetry: _load)
               : _list.isEmpty
                   ? const EmptyState(
-                      icon: Icons.card_giftcard_rounded, title: '暂无兑换记录', subtitle: '快去商城兑换环保好物吧')
+                      icon: Icons.card_giftcard_rounded, title: '还没兑换过好礼', subtitle: '快去商城兑换环保好物吧')
                   : RefreshIndicator(
                       color: AppColors.forest,
                       onRefresh: _load,
@@ -88,7 +89,7 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis),
                                         ),
-                                        StatusChip(text: r.statusText, color: _c(r.status)),
+                                        StatusChip(text: context.tr(r.statusText), color: _c(r.status)),
                                       ]),
                                       const SizedBox(height: 6),
                                       Text('兑换码 ${r.code} · x${r.quantity}',

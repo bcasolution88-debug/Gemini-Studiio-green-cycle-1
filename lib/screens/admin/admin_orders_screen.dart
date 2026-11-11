@@ -200,14 +200,82 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       : RefreshIndicator(
                           color: AppColors.forest,
                           onRefresh: _load,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                            itemCount: _list.length,
-                            itemBuilder: (c, i) => _row(_list[i]),
-                          ),
+                          child: MediaQuery.sizeOf(context).width >= 1000
+                              ? _table()
+                              : ListView.builder(
+                                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                                  itemCount: _list.length,
+                                  itemBuilder: (c, i) => _row(_list[i]),
+                                ),
                         ),
         ),
       ],
+    );
+  }
+
+  /// 桌面表格视图（≥1000px）：一屏可见更多订单，支持直接操作
+  Widget _table() {
+    const hs = TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textGrey);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: SoftCard(
+        padding: EdgeInsets.zero,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: SizedBox(
+            width: double.infinity,
+            child: DataTable(
+              headingRowHeight: 44,
+              dataRowMinHeight: 56,
+              dataRowMaxHeight: 64,
+              columnSpacing: 20,
+              horizontalMargin: 18,
+              headingRowColor: WidgetStateProperty.all(AppColors.bg),
+              columns: const [
+                DataColumn(label: Text('订单号', style: hs)),
+                DataColumn(label: Text('状态', style: hs)),
+                DataColumn(label: Text('品类 / 重量', style: hs)),
+                DataColumn(label: Text('用户', style: hs)),
+                DataColumn(label: Text('预约时间', style: hs)),
+                DataColumn(label: Text('回收员', style: hs)),
+                DataColumn(label: Text('金额', style: hs), numeric: true),
+                DataColumn(label: Text('操作', style: hs)),
+              ],
+              rows: _list.map((o) {
+                final col = statusColor(o.status);
+                return DataRow(cells: [
+                  DataCell(Text(o.orderNo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
+                  DataCell(StatusChip(text: o.statusText, color: col)),
+                  DataCell(Text(
+                    '${o.categoryNames} · ${o.status == 'completed' ? '实际 ${o.actualWeight?.toStringAsFixed(1)}' : '预估 ${o.estimatedWeight.toStringAsFixed(1)}'} kg',
+                    style: const TextStyle(fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  )),
+                  DataCell(Text('${o.contactName}\n${o.contactPhone}', style: const TextStyle(fontSize: 11.5, height: 1.3))),
+                  DataCell(Text(o.appointmentTime, style: const TextStyle(fontSize: 12))),
+                  DataCell(o.recyclerName == null
+                      ? const Text('未指派', style: TextStyle(fontSize: 12, color: AppColors.textGrey))
+                      : Row(mainAxisSize: MainAxisSize.min, children: [
+                          Avatar(o.recyclerAvatar ?? '', size: 22, name: o.recyclerName),
+                          const SizedBox(width: 6),
+                          Text(o.recyclerName!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        ])),
+                  DataCell(Text(o.amount == null ? '-' : '¥${o.amount!.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: o.amount == null ? AppColors.textGrey : AppColors.moneyText))),
+                  DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (o.status == 'pending' || o.status == 'accepted')
+                      _miniBtn(o.status == 'pending' ? '指派' : '改派', Icons.person_add_alt_1_rounded, AppColors.blue, () => _assign(o)),
+                    if (o.isActive) ...[
+                      const SizedBox(width: 6),
+                      _miniBtn('取消', Icons.cancel_outlined, AppColors.coral, () => _cancel(o)),
+                    ],
+                  ])),
+                ]);
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

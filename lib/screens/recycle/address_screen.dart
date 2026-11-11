@@ -82,8 +82,8 @@ class _AddressScreenState extends State<AddressScreen> {
               : _list.isEmpty
                   ? EmptyState(
                       icon: Icons.location_off_rounded,
-                      title: '还没有地址',
-                      subtitle: '添加上门地址后即可预约回收',
+                      title: '添加一个上门地址',
+                      subtitle: '30 秒填好，之后预约一键选择',
                       action: ElevatedButton.icon(
                           onPressed: _add, icon: const Icon(Icons.add), label: const Text('新增地址')),
                     )

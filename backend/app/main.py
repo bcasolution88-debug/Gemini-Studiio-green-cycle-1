@@ -14,7 +14,8 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from .auth import auth_guard, create_token, current_user, hash_password, needs_rehash, verify_password
-from .database import db_cursor, init_db, rows_to_list
+from .database import DB_PATH, db_cursor, init_db, rows_to_list
+from . import push as push_svc
 from .schemas import (
     AddressGeoIn,
     ArticleIn,
@@ -30,6 +31,8 @@ from .schemas import (
     WithdrawRequest,
     RecyclerActionRequest,
     RecyclerOnlineRequest,
+    PushRegisterRequest,
+    PushUnregisterRequest,
     RateOrderRequest,
     RedeemRequest,
     RegisterRequest,
@@ -70,11 +73,17 @@ def _ok(data=None, message="success"):
 
 
 def _notify(conn, user_id, ntype: str, title: str, body: str, related_id=None):
+    """站内信 + 设备推送（推送通道未配置时仅记录日志，不影响主流程）。"""
     if not user_id:
         return
+    nid = f"nt_{uuid.uuid4().hex[:10]}"
     conn.execute(
         "INSERT INTO notifications VALUES (?,?,?,?,?,?,?,?)",
-        (f"nt_{uuid.uuid4().hex[:10]}", user_id, ntype, title, body, related_id, 0, _now()),
+        (nid, user_id, ntype, title, body, related_id, 0, _now()),
+    )
+    push_svc.push_to_user(
+        conn, DB_PATH, user_id, title, body,
+        {"type": ntype, "notification_id": nid, "related_id": related_id or ""},
     )
 
 
@@ -131,7 +140,29 @@ def root():
 
 @app.get("/api/health")
 def health():
-    return _ok({"status": "ok", "time": _now()})
+    return _ok({"status": "ok", "time": _now(), "push": push_svc.provider_status()})
+
+
+# ---------------- 推送（设备 token 注册） ----------------
+@app.post("/api/push/register")
+def push_register(req: PushRegisterRequest):
+    with db_cursor() as conn:
+        push_svc.register_token(conn, req.user_id, req.token, req.platform, req.app_version, req.locale)
+        count = len(push_svc.tokens_for_user(conn, req.user_id))
+    return _ok({"registered": True, "devices": count, "provider": push_svc.provider_status()})
+
+
+@app.post("/api/push/unregister")
+def push_unregister(req: PushUnregisterRequest):
+    with db_cursor() as conn:
+        removed = push_svc.unregister_token(conn, req.token, req.user_id)
+    return _ok({"removed": removed})
+
+
+@app.get("/api/push/devices")
+def push_devices(user_id: str = Query(...)):
+    with db_cursor() as conn:
+        return _ok({"devices": push_svc.tokens_for_user(conn, user_id)})
 
 
 # ---------------- 认证 / 用户 ----------------
@@ -614,9 +645,18 @@ def home(user_id: str = Query(DEMO_USER_ID)):
             "SELECT 1 FROM point_records WHERE user_id=? AND title='每日签到' AND created_at LIKE ?",
             (user_id, f"{today}%"),
         ).fetchone() is not None
+        # 本周（近 7 天）成就：用于首页无进行中订单时的动态卡
+        from datetime import timedelta
+        week_start = (datetime.now() - timedelta(days=6)).strftime("%Y-%m-%d 00:00:00")
+        wk = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(actual_weight),0), COALESCE(SUM(carbon_saved),0), COALESCE(SUM(points_earned),0) "
+            "FROM orders WHERE user_id=? AND status='completed' AND updated_at>=?",
+            (user_id, week_start),
+        ).fetchone()
         return _ok({
             "user": _user_payload(user),
             "today_carbon": round(today_carbon, 2),
+            "week": {"orders": wk[0], "weight": round(wk[1], 1), "carbon": round(wk[2], 2), "points": int(wk[3])},
             "signed_today": signed,
             "categories": cats,
             "active_order": _order_with_items(conn, active) if active else None,

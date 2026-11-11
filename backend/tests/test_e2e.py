@@ -197,6 +197,17 @@ check(call("POST", f"/api/orders/{oid}/rate", {"user_id": uid, "rating": 4}, exp
 check(call("GET", f"/api/recycler/stats?recycler_id={rec['id']}")["rating_count"] == 129, "回收员评分计数 +1")
 check(any("收到用户评价" in i["title"] for i in call("GET", f"/api/notifications?user_id={rec['id']}")["items"]), "回收员收到评价通知")
 
+print("【6.8】推送就绪：设备 token 注册 / 查询 / 注销 / 身份校验")
+tok = "fcm_test_token_" + uid
+reg = call("POST", "/api/push/register", {"user_id": uid, "token": tok, "platform": "android", "app_version": "1.2.0", "locale": "zh"})
+check(reg["registered"] is True and reg["devices"] >= 1, "注册设备 token")
+check(reg["provider"]["provider"] == "fcm_v1" and "enabled" in reg["provider"], "返回推送通道状态")
+check(call("POST", "/api/push/register", {"user_id": uid, "token": tok, "platform": "android"})["devices"] == reg["devices"], "重复注册幂等（UPSERT）")
+check(any(d["token"] == tok for d in call("GET", f"/api/push/devices?user_id={uid}")["devices"]), "查询设备列表包含 token")
+check(call("POST", "/api/push/register", {"user_id": "r_001", "token": "x" * 20, "platform": "android"}, as_user=uid, expect_ok=False)[1] == 403, "冒充他人注册 token 403")
+check(call("GET", "/api/health")["push"]["provider"] == "fcm_v1", "健康检查暴露推送状态")
+check(call("POST", "/api/push/unregister", {"user_id": uid, "token": tok})["removed"] == 1, "注销 token")
+
 print("【7】商城兑换 → 积分扣减/库存 → 管理员发货")
 pts = call("GET", f"/api/users/{uid}")["points"]
 prod = next(p for p in call("GET", "/api/products") if p["points"] <= pts and p["stock"] > 0)

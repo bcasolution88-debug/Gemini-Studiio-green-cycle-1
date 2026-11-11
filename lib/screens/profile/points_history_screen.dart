@@ -116,7 +116,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> {
                 : _error != null
                     ? ErrorState(message: _error!, onRetry: _load)
                     : _filtered.isEmpty
-                        ? const EmptyState(icon: Icons.receipt_rounded, title: '暂无记录')
+                        ? const EmptyState(icon: Icons.receipt_rounded, title: '积分流水为空，去回收赚第一笔')
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
                             itemCount: _filtered.length,

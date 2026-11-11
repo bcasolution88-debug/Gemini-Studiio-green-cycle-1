@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import 'product_detail_screen.dart';
@@ -68,10 +69,10 @@ class _ShopScreenState extends State<ShopScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('积分商城',
+                      Text(context.tr('积分商城'),
                           style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 4),
-                      Text('用积分兑换环保好物',
+                      Text(context.tr('用积分兑换环保好物'),
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
                     ],
                   ),
@@ -128,7 +129,7 @@ class _ShopScreenState extends State<ShopScreen> {
                 : _error != null
                     ? ErrorState(message: _error!, onRetry: _load)
                     : _filtered.isEmpty
-                        ? const EmptyState(icon: Icons.card_giftcard_rounded, title: '该分类暂无商品')
+                        ? EmptyState(icon: Icons.card_giftcard_rounded, title: context.tr('该分类暂无商品'))
                         : RefreshIndicator(
                             color: AppColors.forest,
                             onRefresh: _load,

@@ -2,3 +2,4 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.9.2
 PyJWT>=2.8
+google-auth>=2.29  # 可选：启用 FCM v1 真实推送（配置 GC_FCM_SERVICE_ACCOUNT 后需要）

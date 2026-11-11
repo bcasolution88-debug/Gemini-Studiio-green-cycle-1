@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../providers/app_provider.dart';
 import '../../services/api_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -30,11 +31,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('确认兑换'),
+        title: Text(context.tr('确认兑换')),
         content: Text('使用 $need 积分兑换「${p.name}」x$_qty ？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
-          ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('确认')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.tr('取消'))),
+          ElevatedButton(onPressed: () => Navigator.pop(c, true), child: Text(context.tr('确认'))),
         ],
       ),
     );
@@ -47,10 +48,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       await showDialog(
         context: context,
         builder: (c) => AlertDialog(
-          title: const Row(children: [
-            Icon(Icons.celebration_rounded, color: AppColors.amber),
-            SizedBox(width: 8),
-            Text('兑换成功'),
+          title: Row(children: [
+            const Icon(Icons.celebration_rounded, color: AppColors.amber),
+            const SizedBox(width: 8),
+            Text(context.tr('兑换成功')),
           ]),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -74,7 +75,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ],
           ),
           actions: [
-            ElevatedButton(onPressed: () => Navigator.pop(c), child: const Text('好的')),
+            ElevatedButton(onPressed: () => Navigator.pop(c), child: Text(context.tr('好的'))),
           ],
         ),
       );
@@ -121,7 +122,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             StatusChip(text: p.category, color: AppColors.teal),
                             if (p.isHot) ...[
                               const SizedBox(width: 8),
-                              const StatusChip(text: '热门', color: AppColors.coral),
+                              StatusChip(text: context.tr('热门'), color: AppColors.coral),
                             ],
                             const Spacer(),
                             Text('已兑换 ${p.sold} 件',
@@ -139,7 +140,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             Text('${p.points}',
                                 style: const TextStyle(
                                     fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.moneyText)),
-                            const Text(' 积分',
+                            Text(context.tr(' 积分'),
                                 style: TextStyle(color: AppColors.textGrey, fontSize: 14)),
                             const Spacer(),
                             Text('库存 ${p.stock}',
@@ -151,7 +152,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('商品介绍',
+                              Text(context.tr('商品介绍'),
                                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                               const SizedBox(height: 8),
                               Text(p.description,
@@ -159,7 +160,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               const SizedBox(height: 14),
                               const Divider(),
                               const SizedBox(height: 10),
-                              const Text('兑换说明',
+                              Text(context.tr('兑换说明'),
                                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                               const SizedBox(height: 8),
                               const Text(
@@ -172,7 +173,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         SoftCard(
                           child: Row(
                             children: [
-                              const Text('兑换数量', style: TextStyle(fontWeight: FontWeight.w700)),
+                              Text(context.tr('兑换数量'), style: TextStyle(fontWeight: FontWeight.w700)),
                               const Spacer(),
                               _qtyBtn(Icons.remove_rounded, _qty > 1 ? () => setState(() => _qty--) : null),
                               SizedBox(
@@ -208,7 +209,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('我的积分', style: TextStyle(fontSize: 11, color: AppColors.textGrey)),
+                        Text(context.tr('我的积分'), style: TextStyle(fontSize: 11, color: AppColors.textGrey)),
                         Text('$points',
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                       ],

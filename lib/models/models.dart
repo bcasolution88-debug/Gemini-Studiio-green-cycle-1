@@ -715,9 +715,24 @@ class UserStats {
       );
 }
 
+class WeekStats {
+  final int orders;
+  final double weight;
+  final double carbon;
+  final int points;
+  const WeekStats({this.orders = 0, this.weight = 0, this.carbon = 0, this.points = 0});
+  factory WeekStats.fromJson(Map<String, dynamic> j) => WeekStats(
+        orders: _i(j['orders']), weight: _d(j['weight']), carbon: _d(j['carbon']), points: _i(j['points']));
+
+  /// 减碳量 → 体感换算（约 18kg CO₂ ≈ 一棵树一年吸收；约 0.25kg CO₂ ≈ 汽车行驶 1km）
+  double get trees => carbon / 18.0;
+  double get carKm => carbon / 0.25;
+}
+
 class HomeData {
   final User user;
   final double todayCarbon;
+  final WeekStats week;
   final bool signedToday;
   final List<RecycleCategory> categories;
   final RecycleOrder? activeOrder;
@@ -727,6 +742,7 @@ class HomeData {
   HomeData({
     required this.user,
     required this.todayCarbon,
+    this.week = const WeekStats(),
     required this.signedToday,
     required this.categories,
     required this.activeOrder,
@@ -737,6 +753,7 @@ class HomeData {
   factory HomeData.fromJson(Map<String, dynamic> j) => HomeData(
         user: User.fromJson(Map<String, dynamic>.from(j['user'] ?? {})),
         todayCarbon: _d(j['today_carbon']),
+        week: j['week'] == null ? const WeekStats() : WeekStats.fromJson(Map<String, dynamic>.from(j['week'])),
         signedToday: _b(j['signed_today']),
         categories: ((j['categories'] as List?) ?? [])
             .map((e) => RecycleCategory.fromJson(Map<String, dynamic>.from(e)))

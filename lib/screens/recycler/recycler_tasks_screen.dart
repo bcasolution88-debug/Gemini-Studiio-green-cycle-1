@@ -113,7 +113,7 @@ class _RecyclerTasksScreenState extends State<RecyclerTasksScreen> with SingleTi
       return EmptyState(
         icon: active ? Icons.assignment_turned_in_rounded : Icons.history_rounded,
         title: active ? '暂无进行中任务' : '暂无已完成任务',
-        subtitle: active ? '去接单大厅抢单吧' : null,
+        subtitle: active ? '去接单大厅抢一单，今天的收益从这里开始' : '完成的订单会出现在这里',
       );
     }
     return RefreshIndicator(

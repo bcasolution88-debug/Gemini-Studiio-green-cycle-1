@@ -162,3 +162,16 @@ class WithdrawRequest(BaseModel):
 class ReviewWithdrawRequest(BaseModel):
     approve: bool
     remark: Optional[str] = ""
+
+
+class PushRegisterRequest(BaseModel):
+    user_id: str
+    token: str = Field(min_length=8, max_length=512)
+    platform: str = Field(default="android", pattern="^(android|ios|web)$")
+    app_version: Optional[str] = None
+    locale: Optional[str] = None
+
+
+class PushUnregisterRequest(BaseModel):
+    user_id: str
+    token: str

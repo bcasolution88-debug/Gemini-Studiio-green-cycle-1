@@ -89,12 +89,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 14),
           // KPI 网格
           GridView.count(
-            crossAxisCount: 2,
+            // 桌面（≥1000px）一行 4 个 KPI，手机 2 个
+            crossAxisCount: MediaQuery.sizeOf(context).width >= 1000 ? 4 : 2,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 1.75,
+            childAspectRatio: MediaQuery.sizeOf(context).width >= 1000 ? 2.2 : 1.75,
             children: [
               _kpi('注册用户', '${d.users}', '本月新增 ${d.newUsersMonth}', Icons.people_rounded, AppColors.blue),
               _kpi('回收员', '${d.recyclers}', '在岗服务中', Icons.electric_moped_rounded, AppColors.teal),
