@@ -90,7 +90,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           Expanded(
             child: np.loading && np.items.isEmpty
-                ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+                ? const ListSkeleton(items: 6, itemHeight: 88)
                 : list.isEmpty
                     ? EmptyState(icon: Icons.notifications_off_rounded, title: context.tr('一切安好，暂无新消息'))
                     : RefreshIndicator(

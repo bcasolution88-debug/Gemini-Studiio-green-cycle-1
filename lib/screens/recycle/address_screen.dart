@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
@@ -76,7 +78,7 @@ class _AddressScreenState extends State<AddressScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.selectMode ? '选择地址' : '我的地址')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+          ? const ListSkeleton(items: 3, itemHeight: 96, withAvatar: false)
           : _error != null
               ? ErrorState(message: _error!, onRetry: _load)
               : _list.isEmpty
@@ -126,6 +128,7 @@ class _AddressScreenState extends State<AddressScreen> {
                               ),
                               IconButton(
                                 onPressed: () => _delete(a),
+                                tooltip: context.tr('删除地址'),
                                 icon: const Icon(Icons.delete_outline_rounded,
                                     color: AppColors.textGrey, size: 20),
                               ),

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
@@ -57,7 +59,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       _error = null;
     });
     try {
-      _list = await _api.adminOrders(_admin, status: _status, keyword: _search.text.trim());
+      _list = await _api.adminOrders(
+        _admin,
+        status: _status,
+        keyword: _search.text.trim(),
+      );
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -85,17 +91,27 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(16),
-              child: Text('指派回收员', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              child: Text(
+                context.tr('指派回收员'),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
             ),
-            ...recyclers.map((r) => ListTile(
-                  leading: Avatar(r.avatar, size: 42, name: r.nickname),
-                  title: Text(r.nickname, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(r.phone),
-                  trailing: o.recyclerId == r.id ? const StatusChip(text: '当前', color: AppColors.forest) : null,
-                  onTap: () => Navigator.pop(c, r),
-                )),
+            ...recyclers.map(
+              (r) => ListTile(
+                leading: Avatar(r.avatar, size: 42, name: r.nickname),
+                title: Text(
+                  r.nickname,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(r.phone),
+                trailing: o.recyclerId == r.id
+                    ? const StatusChip(text: '当前', color: AppColors.forest)
+                    : null,
+                onTap: () => Navigator.pop(c, r),
+              ),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -105,7 +121,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     try {
       await _api.adminAssign(_admin, o.id, picked.id);
       if (!mounted) return;
-      showToast(context, '已指派给 ${picked.nickname}');
+      showToast(context, '${context.tr('已指派给')} ${picked.nickname}');
       _load();
     } catch (e) {
       if (mounted) showToast(context, e.toString(), error: true);
@@ -116,13 +132,20 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('取消订单'),
-        content: Text('确定取消订单 ${o.orderNo} 吗？'),
+        title: Text(context.tr('取消订单')),
+        content: Text('${context.tr('确定取消订单')} ${o.orderNo} ${context.tr('吗？')}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('返回')),
           TextButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('确定取消', style: TextStyle(color: AppColors.moneyText))),
+            onPressed: () => Navigator.pop(c, false),
+            child: Text(context.tr('返回')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(
+              context.tr('确定取消'),
+              style: TextStyle(color: AppColors.moneyText),
+            ),
+          ),
         ],
       ),
     );
@@ -130,7 +153,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     try {
       await _api.adminCancel(_admin, o.id);
       if (!mounted) return;
-      showToast(context, '订单已取消');
+      showToast(context, context.tr('订单已取消'));
       _load();
     } catch (e) {
       if (mounted) showToast(context, e.toString(), error: true);
@@ -150,18 +173,23 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 controller: _search,
                 onChanged: _onSearch,
                 decoration: InputDecoration(
-                  hintText: '搜索订单号 / 联系人 / 手机号 / 地址',
+                  hintText: context.tr('搜索订单号 / 联系人 / 手机号 / 地址'),
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _search.text.isEmpty
                       ? null
                       : IconButton(
+                          tooltip: context.tr('清除搜索'),
                           icon: const Icon(Icons.clear_rounded),
                           onPressed: () {
                             _search.clear();
                             _load();
-                          }),
+                          },
+                        ),
                   fillColor: AppColors.bg,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -182,7 +210,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         setState(() => _status = _statuses[i].$1);
                         _load();
                       },
-                      labelStyle: TextStyle(color: sel ? Colors.white : AppColors.textDark, fontSize: 12),
+                      labelStyle: TextStyle(
+                        color: sel ? Colors.white : AppColors.textDark,
+                        fontSize: 12,
+                      ),
                     );
                   },
                 ),
@@ -192,22 +223,22 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         ),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+              ? const ListSkeleton(items: 6, itemHeight: 100)
               : _error != null
-                  ? ErrorState(message: _error!, onRetry: _load)
-                  : _list.isEmpty
-                      ? const EmptyState(icon: Icons.inbox_rounded, title: '没有符合条件的订单')
-                      : RefreshIndicator(
-                          color: AppColors.forest,
-                          onRefresh: _load,
-                          child: MediaQuery.sizeOf(context).width >= 1000
-                              ? _table()
-                              : ListView.builder(
-                                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                                  itemCount: _list.length,
-                                  itemBuilder: (c, i) => _row(_list[i]),
-                                ),
+              ? ErrorState(message: _error!, onRetry: _load)
+              : _list.isEmpty
+              ? const EmptyState(icon: Icons.inbox_rounded, title: '没有符合条件的订单')
+              : RefreshIndicator(
+                  color: AppColors.forest,
+                  onRefresh: _load,
+                  child: MediaQuery.sizeOf(context).width >= 1000
+                      ? _table()
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                          itemCount: _list.length,
+                          itemBuilder: (c, i) => _row(_list[i]),
                         ),
+                ),
         ),
       ],
     );
@@ -215,7 +246,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
   /// 桌面表格视图（≥1000px）：一屏可见更多订单，支持直接操作
   Widget _table() {
-    const hs = TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textGrey);
+    const hs = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+      color: AppColors.textGrey,
+    );
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
       child: SoftCard(
@@ -231,46 +266,119 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               columnSpacing: 20,
               horizontalMargin: 18,
               headingRowColor: WidgetStateProperty.all(AppColors.bg),
-              columns: const [
-                DataColumn(label: Text('订单号', style: hs)),
-                DataColumn(label: Text('状态', style: hs)),
-                DataColumn(label: Text('品类 / 重量', style: hs)),
-                DataColumn(label: Text('用户', style: hs)),
-                DataColumn(label: Text('预约时间', style: hs)),
-                DataColumn(label: Text('回收员', style: hs)),
-                DataColumn(label: Text('金额', style: hs), numeric: true),
-                DataColumn(label: Text('操作', style: hs)),
+              columns: [
+                DataColumn(label: Text(context.tr('订单号'), style: hs)),
+                DataColumn(label: Text(context.tr('状态'), style: hs)),
+                DataColumn(label: Text(context.tr('品类 / 重量'), style: hs)),
+                DataColumn(label: Text(context.tr('用户'), style: hs)),
+                DataColumn(label: Text(context.tr('预约时间'), style: hs)),
+                DataColumn(label: Text(context.tr('回收员'), style: hs)),
+                DataColumn(
+                  label: Text(context.tr('金额'), style: hs),
+                  numeric: true,
+                ),
+                DataColumn(label: Text(context.tr('操作'), style: hs)),
               ],
               rows: _list.map((o) {
                 final col = statusColor(o.status);
-                return DataRow(cells: [
-                  DataCell(Text(o.orderNo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700))),
-                  DataCell(StatusChip(text: o.statusText, color: col)),
-                  DataCell(Text(
-                    '${o.categoryNames} · ${o.status == 'completed' ? '实际 ${o.actualWeight?.toStringAsFixed(1)}' : '预估 ${o.estimatedWeight.toStringAsFixed(1)}'} kg',
-                    style: const TextStyle(fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
-                  )),
-                  DataCell(Text('${o.contactName}\n${o.contactPhone}', style: const TextStyle(fontSize: 11.5, height: 1.3))),
-                  DataCell(Text(o.appointmentTime, style: const TextStyle(fontSize: 12))),
-                  DataCell(o.recyclerName == null
-                      ? const Text('未指派', style: TextStyle(fontSize: 12, color: AppColors.textGrey))
-                      : Row(mainAxisSize: MainAxisSize.min, children: [
-                          Avatar(o.recyclerAvatar ?? '', size: 22, name: o.recyclerName),
-                          const SizedBox(width: 6),
-                          Text(o.recyclerName!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                        ])),
-                  DataCell(Text(o.amount == null ? '-' : '¥${o.amount!.toStringAsFixed(2)}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: o.amount == null ? AppColors.textGrey : AppColors.moneyText))),
-                  DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (o.status == 'pending' || o.status == 'accepted')
-                      _miniBtn(o.status == 'pending' ? '指派' : '改派', Icons.person_add_alt_1_rounded, AppColors.blue, () => _assign(o)),
-                    if (o.isActive) ...[
-                      const SizedBox(width: 6),
-                      _miniBtn('取消', Icons.cancel_outlined, AppColors.coral, () => _cancel(o)),
-                    ],
-                  ])),
-                ]);
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        o.orderNo,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    DataCell(StatusChip(text: o.statusText, color: col)),
+                    DataCell(
+                      Text(
+                        '${o.categoryNames} · ${o.status == 'completed' ? '实际 ${o.actualWeight?.toStringAsFixed(1)}' : '预估 ${o.estimatedWeight.toStringAsFixed(1)}'} kg',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        '${o.contactName}\n${o.contactPhone}',
+                        style: const TextStyle(fontSize: 11.5, height: 1.3),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        o.appointmentTime,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      o.recyclerName == null
+                          ? Text(
+                              context.tr('未指派'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textGrey,
+                              ),
+                            )
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Avatar(
+                                  o.recyclerAvatar ?? '',
+                                  size: 22,
+                                  name: o.recyclerName,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  o.recyclerName!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                    DataCell(
+                      Text(
+                        o.amount == null
+                            ? '-'
+                            : '¥${o.amount!.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: o.amount == null
+                              ? AppColors.textGrey
+                              : AppColors.moneyText,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (o.status == 'pending' || o.status == 'accepted')
+                            _miniBtn(
+                              o.status == 'pending' ? '指派' : '改派',
+                              Icons.person_add_alt_1_rounded,
+                              AppColors.blue,
+                              () => _assign(o),
+                            ),
+                          if (o.isActive) ...[
+                            const SizedBox(width: 6),
+                            _miniBtn(
+                              '取消',
+                              Icons.cancel_outlined,
+                              AppColors.coral,
+                              () => _cancel(o),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                );
               }).toList(),
             ),
           ),
@@ -284,63 +392,130 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     return SoftCard(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: o.id))).then((_) => _load()),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: o.id)),
+      ).then((_) => _load()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Text(o.orderNo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textGrey)),
-            const Spacer(),
-            StatusChip(text: o.statusText, color: col),
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
-              child: Text(o.categoryNames,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-            ),
-            Text(
-              o.status == 'completed'
-                  ? '${o.actualWeight?.toStringAsFixed(1)}kg · ¥${o.amount?.toStringAsFixed(1)}'
-                  : '预估 ${o.estimatedWeight.toStringAsFixed(1)}kg',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: col),
-            ),
-          ]),
-          const SizedBox(height: 6),
-          Text('${o.contactName} ${o.contactPhone} · ${o.appointmentTime}',
-              style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
-          Text(o.addressText, style: const TextStyle(fontSize: 12, color: AppColors.textGrey), maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 10),
-          Row(children: [
-            if (o.recyclerName != null) ...[
-              Avatar(o.recyclerAvatar ?? '', size: 22, name: o.recyclerName),
-              const SizedBox(width: 6),
-              Text(o.recyclerName!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-            ] else
-              const Text('未指派回收员', style: TextStyle(fontSize: 12, color: AppColors.textGrey)),
-            const Spacer(),
-            if (o.status == 'pending' || o.status == 'accepted') ...[
-              _miniBtn(o.status == 'pending' ? '指派' : '改派', Icons.person_add_alt_1_rounded, AppColors.blue, () => _assign(o)),
-              const SizedBox(width: 8),
+          Row(
+            children: [
+              Text(
+                o.orderNo,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textGrey,
+                ),
+              ),
+              const Spacer(),
+              StatusChip(text: o.statusText, color: col),
             ],
-            if (o.isActive) _miniBtn('取消', Icons.cancel_outlined, AppColors.coral, () => _cancel(o)),
-          ]),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  o.categoryNames,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                o.status == 'completed'
+                    ? '${o.actualWeight?.toStringAsFixed(1)}kg · ¥${o.amount?.toStringAsFixed(1)}'
+                    : '${context.tr('预估')} ${o.estimatedWeight.toStringAsFixed(1)}kg',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: col,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${o.contactName} ${o.contactPhone} · ${o.appointmentTime}',
+            style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
+          ),
+          Text(
+            o.addressText,
+            style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (o.recyclerName != null) ...[
+                Avatar(o.recyclerAvatar ?? '', size: 22, name: o.recyclerName),
+                const SizedBox(width: 6),
+                Text(
+                  o.recyclerName!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ] else
+                Text(
+                  context.tr('未指派回收员'),
+                  style: TextStyle(fontSize: 12, color: AppColors.textGrey),
+                ),
+              const Spacer(),
+              if (o.status == 'pending' || o.status == 'accepted') ...[
+                _miniBtn(
+                  o.status == 'pending' ? '指派' : '改派',
+                  Icons.person_add_alt_1_rounded,
+                  AppColors.blue,
+                  () => _assign(o),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (o.isActive)
+                _miniBtn(
+                  '取消',
+                  Icons.cancel_outlined,
+                  AppColors.coral,
+                  () => _cancel(o),
+                ),
+            ],
+          ),
         ],
       ),
     );
   }
 
   Widget _miniBtn(String t, IconData i, Color c, VoidCallback onTap) => InkWell(
-        onTap: onTap,
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(i, size: 14, color: c),
-            const SizedBox(width: 4),
-            Text(t, style: TextStyle(fontSize: 12, color: AppColors.readable(c), fontWeight: FontWeight.w700)),
-          ]),
-        ),
-      );
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(i, size: 14, color: c),
+          const SizedBox(width: 4),
+          Text(
+            t,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.readable(c),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

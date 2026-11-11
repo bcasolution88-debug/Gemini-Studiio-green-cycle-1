@@ -112,7 +112,7 @@ class _PointsHistoryScreenState extends State<PointsHistoryScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+                ? const ListSkeleton(items: 6, itemHeight: 72, withAvatar: false)
                 : _error != null
                     ? ErrorState(message: _error!, onRetry: _load)
                     : _filtered.isEmpty

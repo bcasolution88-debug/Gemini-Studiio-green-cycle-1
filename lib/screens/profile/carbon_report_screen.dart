@@ -56,7 +56,7 @@ class _CarbonReportScreenState extends State<CarbonReportScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('减碳报告')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+          ? const LoadingState()
           : _error != null
               ? ErrorState(message: _error!, onRetry: _load)
               : _body(_stats!),

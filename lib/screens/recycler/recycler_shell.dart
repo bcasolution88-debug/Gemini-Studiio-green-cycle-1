@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+
 import '../../theme/app_theme.dart';
 import 'recycler_hall_screen.dart';
 import 'recycler_profile_screen.dart';
@@ -47,19 +49,31 @@ class _RecyclerShellState extends State<RecyclerShell> {
             backgroundColor: Colors.white,
             indicatorColor: AppColors.lime.withValues(alpha: 0.3),
             height: 66,
-            destinations: const [
+            destinations: [
               NavigationDestination(
-                  icon: Icon(Icons.storefront_outlined),
-                  selectedIcon: Icon(Icons.storefront_rounded, color: AppColors.deepGreen),
-                  label: '接单大厅'),
+                icon: Icon(Icons.storefront_outlined),
+                selectedIcon: Icon(
+                  Icons.storefront_rounded,
+                  color: AppColors.deepGreen,
+                ),
+                label: context.tr('接单大厅'),
+              ),
               NavigationDestination(
-                  icon: Icon(Icons.assignment_outlined),
-                  selectedIcon: Icon(Icons.assignment_rounded, color: AppColors.deepGreen),
-                  label: '我的任务'),
+                icon: Icon(Icons.assignment_outlined),
+                selectedIcon: Icon(
+                  Icons.assignment_rounded,
+                  color: AppColors.deepGreen,
+                ),
+                label: context.tr('我的任务'),
+              ),
               NavigationDestination(
-                  icon: Icon(Icons.person_outline_rounded),
-                  selectedIcon: Icon(Icons.person_rounded, color: AppColors.deepGreen),
-                  label: '我的'),
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(
+                  Icons.person_rounded,
+                  color: AppColors.deepGreen,
+                ),
+                label: context.tr('我的'),
+              ),
             ],
           ),
         ),

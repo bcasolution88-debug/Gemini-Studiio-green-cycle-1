@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -179,14 +180,14 @@ class SectionHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          Text(context.tr(title), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           const Spacer(),
           if (action != null)
             GestureDetector(
               onTap: onAction,
               child: Row(
                 children: [
-                  Text(action!, style: const TextStyle(color: AppColors.textGrey, fontSize: 13)),
+                  Text(context.tr(action!), style: const TextStyle(color: AppColors.textGrey, fontSize: 13)),
                   const Icon(Icons.chevron_right_rounded, color: AppColors.textGrey, size: 18),
                 ],
               ),
@@ -211,9 +212,13 @@ class StatusChip extends StatelessWidget {
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        text,
-        style: TextStyle(color: AppColors.readable(color), fontSize: 12, fontWeight: FontWeight.w700),
+      child: Semantics(
+        label: '${context.tr('状态')}: ${context.tr(text)}',
+        excludeSemantics: true,
+        child: Text(
+          context.tr(text),
+          style: TextStyle(color: AppColors.readable(color), fontSize: 12, fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }
@@ -347,10 +352,10 @@ class EmptyState extends StatelessWidget {
               child: Icon(icon, size: 44, color: AppColors.forest),
             ),
             const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text(context.tr(title), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
-              Text(subtitle!, textAlign: TextAlign.center,
+              Text(context.tr(subtitle!), textAlign: TextAlign.center,
                   style: const TextStyle(color: AppColors.textGrey, fontSize: 13)),
             ],
             if (action != null) ...[const SizedBox(height: 20), action!],
@@ -362,6 +367,105 @@ class EmptyState extends StatelessWidget {
 }
 
 /// 错误状态
+/// 列表骨架屏（统一加载态）：微光扫过的灰块，避免整页转圈
+class ListSkeleton extends StatefulWidget {
+  final int items;
+  final double itemHeight;
+  final EdgeInsets padding;
+  final bool withAvatar;
+  const ListSkeleton({
+    super.key,
+    this.items = 5,
+    this.itemHeight = 84,
+    this.padding = const EdgeInsets.fromLTRB(16, 12, 16, 16),
+    this.withAvatar = true,
+  });
+
+  @override
+  State<ListSkeleton> createState() => _ListSkeletonState();
+}
+
+class _ListSkeletonState extends State<ListSkeleton> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: context.tr('加载中'),
+      liveRegion: true,
+      child: ExcludeSemantics(
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            final t = _c.value;
+            final base = const Color(0xFFE6ECE8);
+            final hi = const Color(0xFFF4F7F5);
+            final grad = LinearGradient(
+              begin: Alignment(-1.5 + 3 * t, 0),
+              end: Alignment(-0.5 + 3 * t, 0),
+              colors: [base, hi, base],
+            );
+            Widget block(double w, double h, {double r = 8}) => Container(
+                  width: w,
+                  height: h,
+                  decoration: BoxDecoration(gradient: grad, borderRadius: BorderRadius.circular(r)),
+                );
+            return ListView.separated(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: widget.padding,
+              itemCount: widget.items,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, i) => Container(
+                height: widget.itemHeight,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: Row(children: [
+                  if (widget.withAvatar) ...[block(44, 44, r: 22), const SizedBox(width: 12)],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        block(double.infinity, 14),
+                        const SizedBox(height: 10),
+                        block(160, 12),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  block(56, 24, r: 12),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// 居中加载指示器（含无障碍语义），用于详情页等非列表场景
+class LoadingState extends StatelessWidget {
+  final String? label;
+  const LoadingState({super.key, this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label ?? context.tr('加载中'),
+      liveRegion: true,
+      child: const Center(child: CircularProgressIndicator(color: AppColors.forest)),
+    );
+  }
+}
+
 class ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -369,14 +473,17 @@ class ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return EmptyState(
+    return Semantics(
+      liveRegion: true,
+      child: EmptyState(
       icon: Icons.cloud_off_rounded,
       title: '加载失败',
       subtitle: message,
       action: ElevatedButton.icon(
         onPressed: onRetry,
         icon: const Icon(Icons.refresh_rounded),
-        label: const Text('重试'),
+        label: Text(context.tr('重试')),
+      ),
       ),
     );
   }

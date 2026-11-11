@@ -39,6 +39,9 @@
 - **首页本周战报**：首页顶部卡片按状态切换——有进行中订单显示订单进度；否则显示本周完成单数 / 重量 / 减碳 / 积分（≈ 种树 · 少开车 km）；无记录时显示首单引导
 - **后台桌面宽屏**：管理后台在宽度 ≥ 1000px 时自动切换为左侧导航栏 + 1180px 内容区 + 表格布局（订单 `DataTable`、KPI 4 列），窄屏仍为底部导航
 - **推送就绪（FCM v1 抽象层）**：见下文「推送」一节
+- **三端 l10n 全覆盖（v1.3）**：回收员端与管理后台所有文案同样接入 `context.tr`，`_zh2en` 字典 400+ 条；`StatusChip` / `EmptyState` / `SectionHeader` / `ErrorState` 等公共组件内部自动翻译
+- **无障碍（v1.3）**：全部 `IconButton` 带 `tooltip`（读屏可读）；状态标签、加载态、错误态带 `Semantics` 语义与 `liveRegion`；骨架屏对读屏隐藏内部装饰块
+- **统一加载 / 错误态（v1.3）**：列表页统一 `ListSkeleton` 微光骨架屏，详情页 `LoadingState`，失败统一 `ErrorState`（带重试）
 
 ### 回收员端
 - **接单大厅**：今日业绩概览、待接订单列表（品类/重量/时间/地址）、一键抢单
@@ -171,6 +174,10 @@ flutter run --dart-define=API_BASE_URL=http://192.168.x.x:8000
 flutter build web --release
 
 # Android APK（需在 android/key.properties 配置签名，否则回退到 debug 签名）
+# 推荐：按 ABI 切分（每包约 17–21 MB，比通用包小 ~65%）
+flutter build apk --release --split-per-abi --dart-define=API_BASE_URL=https://your-api.example.com
+# 输出：app-arm64-v8a-release.apk（绝大多数现代手机）/ app-armeabi-v7a-release.apk / app-x86_64-release.apk
+# 通用包（含 3 套 ABI，约 55 MB，仅用于内测分发）
 flutter build apk --release --dart-define=API_BASE_URL=https://your-api.example.com
 
 # Google Play 上架用 AAB
@@ -179,6 +186,8 @@ flutter build appbundle --release --dart-define=API_BASE_URL=https://your-api.ex
 ```
 
 上架素材与文案见 `store_assets/LISTING.md`。
+
+**体积优化（v1.3.0+）**：release 构建已启用 R8 代码压缩 + 资源裁剪（`android/app/proguard-rules.pro`），AAB 启用 language / density / ABI 三维切分，Google Play 下发给单台设备的安装体积约 18–20 MB。通用 APK 体积主要来自三套 `libflutter.so` / `libapp.so`（约 53 MB），无法再压缩，请优先分发按 ABI 切分包或 AAB。
 
 签名配置示例 `android/key.properties`（已加入 .gitignore）：
 

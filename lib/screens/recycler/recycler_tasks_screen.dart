@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
@@ -16,7 +18,8 @@ class RecyclerTasksScreen extends StatefulWidget {
   State<RecyclerTasksScreen> createState() => _RecyclerTasksScreenState();
 }
 
-class _RecyclerTasksScreenState extends State<RecyclerTasksScreen> with SingleTickerProviderStateMixin {
+class _RecyclerTasksScreenState extends State<RecyclerTasksScreen>
+    with SingleTickerProviderStateMixin {
   late final TabController _tab;
   final _api = ApiService.instance;
   List<RecycleOrder> _active = [];
@@ -74,10 +77,23 @@ class _RecyclerTasksScreenState extends State<RecyclerTasksScreen> with SingleTi
               children: [
                 Row(
                   children: [
-                    const Text('我的任务',
-                        style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                    Text(
+                      context.tr('我的任务'),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const Spacer(),
-                    IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded, color: Colors.white)),
+                    IconButton(
+                      onPressed: _load,
+                      tooltip: context.tr('刷新'),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
                 TabBar(
@@ -88,20 +104,23 @@ class _RecyclerTasksScreenState extends State<RecyclerTasksScreen> with SingleTi
                   unselectedLabelColor: Colors.white60,
                   labelStyle: const TextStyle(fontWeight: FontWeight.w800),
                   dividerColor: Colors.transparent,
-                  tabs: [Tab(text: '进行中 (${_active.length})'), Tab(text: '已完成 (${_done.length})')],
+                  tabs: [
+                    Tab(text: '${context.tr('进行中')} (${_active.length})'),
+                    Tab(text: '${context.tr('已完成')} (${_done.length})'),
+                  ],
                 ),
               ],
             ),
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+                ? const ListSkeleton(items: 4, itemHeight: 112)
                 : _error != null
-                    ? ErrorState(message: _error!, onRetry: _load)
-                    : TabBarView(
-                        controller: _tab,
-                        children: [_list(_active, true), _list(_done, false)],
-                      ),
+                ? ErrorState(message: _error!, onRetry: _load)
+                : TabBarView(
+                    controller: _tab,
+                    children: [_list(_active, true), _list(_done, false)],
+                  ),
           ),
         ],
       ),
@@ -111,9 +130,11 @@ class _RecyclerTasksScreenState extends State<RecyclerTasksScreen> with SingleTi
   Widget _list(List<RecycleOrder> list, bool active) {
     if (list.isEmpty) {
       return EmptyState(
-        icon: active ? Icons.assignment_turned_in_rounded : Icons.history_rounded,
-        title: active ? '暂无进行中任务' : '暂无已完成任务',
-        subtitle: active ? '去接单大厅抢一单，今天的收益从这里开始' : '完成的订单会出现在这里',
+        icon: active
+            ? Icons.assignment_turned_in_rounded
+            : Icons.history_rounded,
+        title: active ? context.tr('暂无进行中任务') : context.tr('暂无已完成任务'),
+        subtitle: active ? context.tr('去接单大厅抢一单，今天的收益从这里开始') : context.tr('完成的订单会出现在这里'),
       );
     }
     return RefreshIndicator(
@@ -127,55 +148,90 @@ class _RecyclerTasksScreenState extends State<RecyclerTasksScreen> with SingleTi
           final col = statusColor(o.status);
           return SoftCard(
             margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => RecyclerTaskDetailScreen(orderId: o.id)))
-                .then((_) => _load()),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RecyclerTaskDetailScreen(orderId: o.id),
+              ),
+            ).then((_) => _load()),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     IconBadge(
-                        icon: o.status == 'completed'
-                            ? Icons.verified_rounded
-                            : (o.status == 'in_progress' ? Icons.electric_moped_rounded : Icons.how_to_reg_rounded),
-                        color: col,
-                        size: 42,
-                        iconSize: 22),
+                      icon: o.status == 'completed'
+                          ? Icons.verified_rounded
+                          : (o.status == 'in_progress'
+                                ? Icons.electric_moped_rounded
+                                : Icons.how_to_reg_rounded),
+                      color: col,
+                      size: 42,
+                      iconSize: 22,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(o.categoryNames,
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
+                          Text(
+                            o.categoryNames,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           const SizedBox(height: 2),
-                          Text(o.appointmentTime, style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
+                          Text(
+                            o.appointmentTime,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textGrey,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    StatusChip(text: active ? (o.status == 'accepted' ? '待出发' : '上门中') : '已完成', color: col),
+                    StatusChip(
+                      text: active
+                          ? (o.status == 'accepted' ? '待出发' : '上门中')
+                          : '已完成',
+                      color: col,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.location_on_rounded, size: 14, color: AppColors.coral),
+                    const Icon(
+                      Icons.location_on_rounded,
+                      size: 14,
+                      color: AppColors.coral,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
-                      child: Text(o.addressText,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textGrey),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        o.addressText,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textGrey,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       active
-                          ? '预估 ${o.estimatedWeight.toStringAsFixed(1)}kg'
+                          ? '${context.tr('预估')} ${o.estimatedWeight.toStringAsFixed(1)}kg'
                           : '${o.actualWeight?.toStringAsFixed(1) ?? '-'}kg · ¥${o.amount?.toStringAsFixed(1) ?? '-'}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: col),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: col,
+                      ),
                     ),
                   ],
                 ),

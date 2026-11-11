@@ -125,7 +125,7 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+                ? const ListSkeleton(items: 4, itemHeight: 120)
                 : _error != null
                     ? ErrorState(message: _error!, onRetry: _load)
                     : _filtered.isEmpty

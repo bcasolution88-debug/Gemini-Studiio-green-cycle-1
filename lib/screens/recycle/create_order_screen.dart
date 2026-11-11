@@ -155,7 +155,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('预约上门回收'))),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+          ? const LoadingState()
           : _error != null
               ? ErrorState(message: _error!, onRetry: _load)
               : Column(

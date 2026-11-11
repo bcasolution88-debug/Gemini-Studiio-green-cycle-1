@@ -57,7 +57,7 @@ class _RedemptionsScreenState extends State<RedemptionsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('兑换记录')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+          ? const ListSkeleton(items: 4, itemHeight: 100)
           : _error != null
               ? ErrorState(message: _error!, onRetry: _load)
               : _list.isEmpty

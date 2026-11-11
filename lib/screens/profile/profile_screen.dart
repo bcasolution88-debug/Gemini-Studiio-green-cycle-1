@@ -133,6 +133,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           IconButton(
                             onPressed: () => Navigator.push(context,
                                 MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
+                            tooltip: context.tr('设置'),
                             icon: const Icon(Icons.settings_rounded, color: Colors.white),
                           ),
                         ],

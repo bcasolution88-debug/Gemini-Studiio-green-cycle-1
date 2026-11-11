@@ -222,7 +222,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.tr('订单详情'))),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+          ? const LoadingState()
           : _error != null
               ? ErrorState(message: _error!, onRetry: _load)
               : _body(),

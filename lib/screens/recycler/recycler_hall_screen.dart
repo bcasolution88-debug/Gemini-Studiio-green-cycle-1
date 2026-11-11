@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
@@ -38,14 +40,17 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (c) => AlertDialog(
-          title: const Text('暂停接单？'),
-          content: const Text('暂停后将不再收到新订单提醒，也无法抢单；已接的订单不受影响，可随时重新开启。'),
+          title: Text(context.tr('暂停接单？')),
+          content: Text(context.tr('暂停后将不再收到新订单提醒，也无法抢单；已接的订单不受影响，可随时重新开启。')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')),
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(context.tr('取消')),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.coral),
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('暂停接单'),
+              child: Text(context.tr('暂停接单')),
             ),
           ],
         ),
@@ -56,7 +61,7 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
     try {
       await _api.setRecyclerOnline(me, v);
       if (!mounted) return;
-      showToast(context, v ? '已开启接单，新订单将实时提醒' : '已暂停接单');
+      showToast(context, v ? context.tr('已开启接单，新订单将实时提醒') : context.tr('已暂停接单'));
       await _load();
     } catch (e) {
       if (mounted) showToast(context, e.toString(), error: true);
@@ -93,25 +98,25 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
 
   Future<void> _accept(RecycleOrder o) async {
     if (!_online) {
-      showToast(context, '当前为「暂停接单」状态，请先开启接单', error: true);
+      showToast(context, context.tr('当前为「暂停接单」状态，请先开启接单'), error: true);
       return;
     }
     final me = context.read<AppProvider>().userId;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('确认接单'),
+        title: Text(context.tr('确认接单')),
         content: Text(
-          '${o.categoryNames} · 预估 ${o.estimatedWeight.toStringAsFixed(1)}kg\n上门时间：${o.appointmentTime}\n地址：${o.addressText}',
+          '${o.categoryNames} · ${context.tr('预估')} ${o.estimatedWeight.toStringAsFixed(1)}kg\n${context.tr('上门时间：')}${o.appointmentTime}\n${context.tr('地址：')}${o.addressText}',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('接单'),
+            child: Text(context.tr('接单')),
           ),
         ],
       ),
@@ -121,7 +126,7 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
     try {
       await _api.recyclerAccept(o.id, me);
       if (!mounted) return;
-      showToast(context, '接单成功，请按时上门');
+      showToast(context, context.tr('接单成功，请按时上门'));
       await _load();
     } catch (e) {
       if (mounted) showToast(context, e.toString(), error: true);
@@ -166,7 +171,7 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${user?.nickname ?? '回收员'}，辛苦了',
+                                '${user?.nickname ?? context.tr('回收员')}${context.tr('，辛苦了')}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
@@ -174,7 +179,7 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                                 ),
                               ),
                               Text(
-                                '回收员端 · 服务评分 ${_stats?.rating.toStringAsFixed(1) ?? '-'}',
+                                '${context.tr('回收员端')} · ${context.tr('服务评分')} ${_stats?.rating.toStringAsFixed(1) ?? '-'}',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.85),
                                   fontSize: 12,
@@ -236,28 +241,29 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                     const SizedBox(height: 20),
                     Row(
                       children: [
-                        _stat('今日完成', '${_stats?.today.count ?? 0}', '单'),
-                        _stat(
-                          '今日回收',
+                        _stat(context.tr('今日完成'), '${_stats?.today.count ?? 0}', context.tr('单')),
+                        _stat(context.tr('今日回收'),
                           _stats?.today.weight.toStringAsFixed(1) ?? '0',
                           'kg',
                         ),
-                        _stat(
-                          '今日金额',
+                        _stat(context.tr('今日金额'),
                           '¥${_stats?.today.amount.toStringAsFixed(0) ?? '0'}',
                           '',
                         ),
-                        _stat(
-                          '进行中',
+                        _stat(context.tr('进行中'),
                           '${_stats?.activeTasks ?? 0}',
-                          '单',
+                          context.tr('单'),
                           highlight: true,
                           onTap: widget.onGoTasks,
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
-                    _OnlineBar(online: _online, busy: _toggling, onChanged: _toggleOnline),
+                    _OnlineBar(
+                      online: _online,
+                      busy: _toggling,
+                      onChanged: _toggleOnline,
+                    ),
                   ],
                 ),
               ),
@@ -266,41 +272,59 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
               SliverToBoxAdapter(
                 child: Container(
                   margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.coral.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(AppRadius.md),
-                    border: Border.all(color: AppColors.coral.withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: AppColors.coral.withValues(alpha: 0.35),
+                    ),
                   ),
-                  child: Row(children: [
-                    const Icon(Icons.pause_circle_filled_rounded, color: AppColors.moneyText, size: 20),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text('您已暂停接单，新订单不会提醒您，也无法抢单。',
-                          style: TextStyle(fontSize: 12.5, color: AppColors.moneyText, fontWeight: FontWeight.w600)),
-                    ),
-                    TextButton(
-                      onPressed: _toggling ? null : () => _toggleOnline(true),
-                      style: TextButton.styleFrom(foregroundColor: AppColors.forest, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                      child: const Text('开启', style: TextStyle(fontWeight: FontWeight.w800)),
-                    ),
-                  ]),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.pause_circle_filled_rounded,
+                        color: AppColors.moneyText,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          context.tr('您已暂停接单，新订单不会提醒您，也无法抢单。'),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.moneyText,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _toggling ? null : () => _toggleOnline(true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.forest,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        child: Text(
+                          context.tr('开启'),
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             SliverToBoxAdapter(
               child: SectionHeader(
-                title: '待接单 (${_orders.length})',
+                title: '${context.tr('待接单')} (${_orders.length})',
                 action: '刷新',
                 onAction: _load,
               ),
             ),
             if (_loading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.forest),
-                ),
-              )
+              const SliverFillRemaining(hasScrollBody: false, child: ListSkeleton(items: 4, itemHeight: 128))
             else if (_error != null)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -372,7 +396,9 @@ class _RecyclerHallScreenState extends State<RecyclerHallScreen> {
                     text: unit,
                     style: TextStyle(
                       fontSize: 10,
-                      color: highlight ? AppColors.deepGreen : AppColors.onDarkSoft,
+                      color: highlight
+                          ? AppColors.deepGreen
+                          : AppColors.onDarkSoft,
                     ),
                   ),
                 ],
@@ -437,7 +463,7 @@ class _HallCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '订单 ${o.orderNo}',
+                      '${context.tr('订单号')} ${o.orderNo}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.textGrey,
@@ -457,8 +483,8 @@ class _HallCard extends StatelessWidget {
                       color: AppColors.forest,
                     ),
                   ),
-                  const Text(
-                    '预估重量',
+                  Text(
+                    context.tr('预估重量'),
                     style: TextStyle(fontSize: 10, color: AppColors.textGrey),
                   ),
                 ],
@@ -525,7 +551,9 @@ class _HallCard extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : Text(enabled ? '抢单' : '已暂停', style: const TextStyle(fontSize: 14)),
+                      : Text(enabled ? context.tr('抢单') : context.tr('已暂停'),
+                          style: const TextStyle(fontSize: 14),
+                        ),
                 ),
               ),
             ],
@@ -541,7 +569,11 @@ class _OnlineBar extends StatelessWidget {
   final bool online;
   final bool busy;
   final ValueChanged<bool> onChanged;
-  const _OnlineBar({required this.online, required this.busy, required this.onChanged});
+  const _OnlineBar({
+    required this.online,
+    required this.busy,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -562,7 +594,13 @@ class _OnlineBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: c,
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: c.withValues(alpha: 0.7), blurRadius: online ? 8 : 0, spreadRadius: online ? 1 : 0)],
+              boxShadow: [
+                BoxShadow(
+                  color: c.withValues(alpha: 0.7),
+                  blurRadius: online ? 8 : 0,
+                  spreadRadius: online ? 1 : 0,
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 10),
@@ -570,15 +608,31 @@ class _OnlineBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(online ? '接单中' : '已暂停接单',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
-                Text(online ? '新订单将实时提醒您' : '不接收新单，已接订单不受影响',
-                    style: const TextStyle(color: AppColors.onDarkSoft, fontSize: 11)),
+                Text(online ? context.tr('接单中') : context.tr('已暂停接单'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(online ? context.tr('新订单将实时提醒您') : context.tr('不接收新单，已接订单不受影响'),
+                  style: const TextStyle(
+                    color: AppColors.onDarkSoft,
+                    fontSize: 11,
+                  ),
+                ),
               ],
             ),
           ),
           if (busy)
-            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
           else
             Switch.adaptive(
               value: online,

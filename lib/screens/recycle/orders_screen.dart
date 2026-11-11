@@ -95,6 +95,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                     const Spacer(),
                     IconButton(
                         onPressed: _load,
+                        tooltip: context.tr('刷新'),
                         icon: const Icon(Icons.refresh_rounded, color: Colors.white)),
                   ],
                 ),
@@ -116,7 +117,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+                ? const ListSkeleton(items: 5, itemHeight: 112)
                 : _error != null
                     ? ErrorState(message: _error!, onRetry: _load)
                     : TabBarView(

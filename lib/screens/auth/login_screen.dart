@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/app_provider.dart';
@@ -81,9 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.topRight,
                     child: IconButton(
-                      tooltip: '后端服务设置',
                       onPressed: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const ServerSettingsScreen())),
+                      tooltip: context.tr('后端服务设置'),
                       icon: const Icon(Icons.settings_rounded, color: AppColors.onDarkSoft),
                     ),
                   ),
@@ -137,6 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               labelText: '密码',
                               prefixIcon: const Icon(Icons.lock_rounded),
                               suffixIcon: IconButton(
+                                tooltip: _obscure ? context.tr('显示密码') : context.tr('隐藏密码'),
                                 icon: Icon(_obscure
                                     ? Icons.visibility_off_rounded
                                     : Icons.visibility_rounded),

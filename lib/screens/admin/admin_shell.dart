@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../../main.dart' show openNotificationTarget;
@@ -51,17 +53,25 @@ class _AdminShellState extends State<AdminShell> {
     AdminFinanceScreen(),
   ];
 
-  void _openMap() => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminMapScreen()));
+  void _openMap() => Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const AdminMapScreen()),
+  );
 
   void _openNotifications() => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => NotificationsScreen(onOpen: (n) => openNotificationTarget(context, n))),
-      );
+    context,
+    MaterialPageRoute(
+      builder: (_) => NotificationsScreen(
+        onOpen: (n) => openNotificationTarget(context, n),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    final isDesktop = MediaQuery.sizeOf(context).width >= kAdminDesktopBreakpoint;
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= kAdminDesktopBreakpoint;
     return isDesktop ? _buildDesktop(app) : _buildMobile(app);
   }
 
@@ -77,22 +87,43 @@ class _AdminShellState extends State<AdminShell> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.asset('assets/icons/app_icon.png', width: 28, height: 28),
+              child: Image.asset(
+                'assets/icons/app_icon.png',
+                width: 28,
+                height: 28,
+              ),
             ),
             const SizedBox(width: 10),
-            Text('绿循环管理后台 · ${_titles[_index]}',
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+            Text(
+              '${context.tr('绿循环')} ${context.tr('管理后台')} · ${context.tr(_titles[_index])}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ],
         ),
         actions: [
-          IconButton(tooltip: '回收员地图', onPressed: _openMap, icon: const Icon(Icons.map_rounded)),
+          IconButton(
+            tooltip: context.tr('回收员地图'),
+            onPressed: _openMap,
+            icon: const Icon(Icons.map_rounded),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Center(
-              child: NotificationBell(background: Colors.white.withValues(alpha: 0.12), onTap: _openNotifications),
+              child: NotificationBell(
+                background: Colors.white.withValues(alpha: 0.12),
+                onTap: _openNotifications,
+              ),
             ),
           ),
-          IconButton(tooltip: '退出登录', onPressed: () => app.logout(), icon: const Icon(Icons.logout_rounded)),
+          IconButton(
+            tooltip: context.tr('退出登录'),
+            onPressed: () => app.logout(),
+            icon: const Icon(Icons.logout_rounded),
+          ),
         ],
       ),
       body: IndexedStack(index: _index, children: _pages),
@@ -103,7 +134,11 @@ class _AdminShellState extends State<AdminShell> {
         indicatorColor: AppColors.lime.withValues(alpha: 0.3),
         destinations: [
           for (final (o, f, l) in _icons)
-            NavigationDestination(icon: Icon(o), selectedIcon: Icon(f, color: AppColors.deepGreen), label: l),
+            NavigationDestination(
+              icon: Icon(o),
+              selectedIcon: Icon(f, color: AppColors.deepGreen),
+              label: context.tr(l),
+            ),
         ],
       ),
     );
@@ -126,36 +161,73 @@ class _AdminShellState extends State<AdminShell> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-                    child: Row(children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.asset('assets/icons/app_icon.png', width: 40, height: 40),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('绿循环', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
-                          Text('管理后台', style: TextStyle(color: AppColors.onDarkSoft, fontSize: 12)),
-                        ]),
-                      ),
-                    ]),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(
+                            'assets/icons/app_icon.png',
+                            width: 40,
+                            height: 40,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.tr('绿循环'),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                context.tr('管理后台'),
+                                style: TextStyle(
+                                  color: AppColors.onDarkSoft,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Divider(color: Colors.white24, height: 1, indent: 16, endIndent: 16),
+                  const Divider(
+                    color: Colors.white24,
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                  ),
                   const SizedBox(height: 10),
                   for (var i = 0; i < _icons.length; i++)
                     _RailItem(
                       icon: _index == i ? _icons[i].$2 : _icons[i].$1,
-                      label: _titles[i],
+                      label: context.tr(_titles[i]),
                       selected: _index == i,
                       onTap: () => setState(() => _index = i),
                     ),
                   const SizedBox(height: 10),
-                  const Divider(color: Colors.white24, height: 1, indent: 16, endIndent: 16),
+                  const Divider(
+                    color: Colors.white24,
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                  ),
                   const SizedBox(height: 10),
-                  _RailItem(icon: Icons.map_rounded, label: '回收员实时地图', selected: false, onTap: _openMap),
+                  _RailItem(
+                    icon: Icons.map_rounded,
+                    label: context.tr('回收员实时地图'),
+                    selected: false,
+                    onTap: _openMap,
+                  ),
                   _RailItem(
                     icon: Icons.notifications_rounded,
-                    label: '消息中心',
+                    label: context.tr('消息中心'),
                     selected: false,
                     onTap: _openNotifications,
                     trailing: const _RailBellBadge(),
@@ -163,24 +235,50 @@ class _AdminShellState extends State<AdminShell> {
                   const Spacer(),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    child: Row(children: [
-                      Avatar(user?.avatar ?? '', size: 36, border: AppColors.lime, name: user?.nickname),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(user?.nickname ?? '管理员',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
-                          const Text('超级管理员', style: TextStyle(color: AppColors.onDarkSoft, fontSize: 11)),
-                        ]),
-                      ),
-                      IconButton(
-                        tooltip: '退出登录',
-                        onPressed: () => app.logout(),
-                        icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 20),
-                      ),
-                    ]),
+                    child: Row(
+                      children: [
+                        Avatar(
+                          user?.avatar ?? '',
+                          size: 36,
+                          border: AppColors.lime,
+                          name: user?.nickname,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user?.nickname ?? '管理员',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                context.tr('超级管理员'),
+                                style: TextStyle(
+                                  color: AppColors.onDarkSoft,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: context.tr('退出登录'),
+                          onPressed: () => app.logout(),
+                          icon: const Icon(
+                            Icons.logout_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -196,29 +294,57 @@ class _AdminShellState extends State<AdminShell> {
                   padding: const EdgeInsets.symmetric(horizontal: 28),
                   decoration: const BoxDecoration(
                     color: Colors.white,
-                    border: Border(bottom: BorderSide(color: AppColors.divider)),
-                  ),
-                  child: Row(children: [
-                    Text(_titles[_index], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.lime.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text('桌面版', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.deepGreen)),
+                    border: Border(
+                      bottom: BorderSide(color: AppColors.divider),
                     ),
-                    const Spacer(),
-                    Text('${MediaQuery.sizeOf(context).width.toInt()} px',
-                        style: const TextStyle(fontSize: 11, color: AppColors.textGrey)),
-                  ]),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        context.tr(_titles[_index]),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.lime.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          context.tr('桌面版'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.deepGreen,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${MediaQuery.sizeOf(context).width.toInt()} px',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textGrey,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Expanded(
                   child: Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: kAdminContentMaxWidth),
+                      constraints: const BoxConstraints(
+                        maxWidth: kAdminContentMaxWidth,
+                      ),
                       child: IndexedStack(index: _index, children: _pages),
                     ),
                   ),
@@ -238,7 +364,13 @@ class _RailItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final Widget? trailing;
-  const _RailItem({required this.icon, required this.label, required this.selected, required this.onTap, this.trailing});
+  const _RailItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.trailing,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -253,19 +385,27 @@ class _RailItem extends StatelessWidget {
           hoverColor: Colors.white.withValues(alpha: 0.10),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(children: [
-              Icon(icon, size: 20, color: selected ? AppColors.deepGreen : Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(label,
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: selected ? AppColors.deepGreen : Colors.white,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
                     style: TextStyle(
                       color: selected ? AppColors.deepGreen : Colors.white,
                       fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
                       fontSize: 14,
-                    )),
-              ),
-              if (trailing != null) trailing!,
-            ]),
+                    ),
+                  ),
+                ),
+                if (trailing != null) trailing!,
+              ],
+            ),
           ),
         ),
       ),
@@ -283,11 +423,20 @@ class _RailBellBadge extends StatelessWidget {
     if (unread <= 0) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: AppColors.coral, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        color: AppColors.coral,
+        borderRadius: BorderRadius.circular(10),
+      ),
       constraints: const BoxConstraints(minWidth: 20),
-      child: Text(unread > 99 ? '99+' : '$unread',
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+      child: Text(
+        unread > 99 ? '99+' : '$unread',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }

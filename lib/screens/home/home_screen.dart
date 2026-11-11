@@ -29,7 +29,7 @@ class HomeScreen extends StatelessWidget {
         onRefresh: app.loadHome,
         child: home == null
             ? (app.loadingHome
-                ? const Center(child: CircularProgressIndicator(color: AppColors.forest))
+                ? const ListSkeleton(items: 4, itemHeight: 120, withAvatar: false)
                 : ListView(children: [
                     const SizedBox(height: 160),
                     ErrorState(message: app.homeError ?? context.tr('暂无数据'), onRetry: app.loadHome),
